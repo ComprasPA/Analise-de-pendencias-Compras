@@ -311,7 +311,13 @@ if df is not None:
         (~df_aberto["Tem_Pedido"].fillna(False).astype(bool)).sum()
     )
 
-    df_geral_crit = df.copy()
+    # SLA médio só faz sentido pra itens ainda em aberto: "Data Pedido" nunca
+    # vem preenchida nesta planilha, então o "Days" de um item Atendida não
+    # tem como congelar na data real de fechamento e ficava contando pra
+    # sempre a partir da Data Solicitação - inflando a média com pedidos já
+    # finalizados há meses. Restringir aos itens em aberto reflete a
+    # realidade: a idade do que ainda está pendente.
+    df_geral_crit = df[df["Status_Detalhado"] != "Atendidas"].copy()
 
     if col_criticidade:
       df_geral_crit = df_geral_crit[
@@ -972,8 +978,11 @@ if df is not None:
           qtd_pedidos_gerados = comprados_atual
 
           if col_criticidade:
-            df_comp_crit = df_comp_total[
-                df_comp_total[col_criticidade]
+            df_comp_aberto_crit = df_comp_total[
+                df_comp_total["Status_Detalhado"] != "Atendidas"
+            ]
+            df_comp_crit = df_comp_aberto_crit[
+                df_comp_aberto_crit[col_criticidade]
                 .astype(str)
                 .str.upper()
                 .isin(["ROTINEIRA", "EMERGENCIAL"])
