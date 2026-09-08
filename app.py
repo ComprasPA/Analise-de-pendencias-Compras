@@ -69,9 +69,13 @@ def salvar_historico_dia(worksheet, data_str, snapshot):
   else:
     worksheet.append_row([data_str, dados_json], value_input_option="RAW")
 
-col_fonte, col_tema = st.columns([6, 1])
+col_fonte, col_refresh, col_tema = st.columns([5, 0.6, 1])
 with col_fonte:
   st.caption("🔗 Fonte: Google Sheets (Guia: Solicitações) — sincronização automática")
+with col_refresh:
+  if st.button("🔄", help="Atualizar dados agora"):
+    st.cache_data.clear()
+    st.rerun()
 with col_tema:
   modo_escuro = st.toggle("☀️ / 🌙", value=True, help="Alternar entre tema claro e escuro")
 
