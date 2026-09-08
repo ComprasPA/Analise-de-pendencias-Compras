@@ -312,11 +312,6 @@ if df is not None:
     )
 
     df_geral_crit = df.copy()
-    if col_dt_emissao in df_geral_crit.columns:
-      mask_luiz_antigo = (df_geral_crit["Comprador_Resp"] == "Luiz") & (
-          df_geral_crit[col_dt_emissao] < pd.to_datetime("2026-07-06")
-      )
-      df_geral_crit = df_geral_crit[~mask_luiz_antigo]
 
     if col_criticidade:
       df_geral_crit = df_geral_crit[
@@ -351,11 +346,9 @@ if df is not None:
         "compradores": {},
     }
 
-    compradores_snapshot = ["Ednilson", "Dayana", "Luiz", "Sílvio"]
+    compradores_snapshot = ["Ednilson", "Dayana", "Sílvio"]
     for comp in compradores_snapshot:
       df_c = df[df["Comprador_Resp"] == comp]
-      if comp == "Luiz" and col_dt_emissao in df_c.columns:
-        df_c = df_c[df_c[col_dt_emissao] >= pd.to_datetime("2026-07-06")]
 
       sem_ped_comp = int(
           (~df_c["Tem_Pedido"].fillna(False).astype(bool)).sum()
@@ -919,9 +912,9 @@ if df is not None:
         unsafe_allow_html=True,
     )
 
-    row4_c1, row4_c2, row4_c3, row4_c4 = st.columns(4)
-    compradores = ["Ednilson", "Dayana", "Luiz", "Sílvio"]
-    colunas_st = [row4_c1, row4_c2, row4_c3, row4_c4]
+    row4_c1, row4_c2, row4_c3 = st.columns(3)
+    compradores = ["Ednilson", "Dayana", "Sílvio"]
+    colunas_st = [row4_c1, row4_c2, row4_c3]
 
     color_status_map = {
         "No Prazo": "#22c55e" if is_tema_claro else "#388e3c",
@@ -938,11 +931,6 @@ if df is not None:
         )
 
         df_comp_total = df[df["Comprador_Resp"] == comp].copy()
-
-        if comp == "Luiz" and col_dt_emissao in df_comp_total.columns:
-          df_comp_total = df_comp_total[
-              df_comp_total[col_dt_emissao] >= pd.to_datetime("2026-07-06")
-          ]
 
         sem_ped_atual = int(
             (~df_comp_total["Tem_Pedido"].fillna(False).astype(bool)).sum()
