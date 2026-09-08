@@ -472,7 +472,7 @@ if df is not None:
 
     with row1_c1:
       if dados_ontem:
-        texto_comparativo = f"{dados_ontem.get('total_scs_aberto', '--')} SCs | {dados_ontem.get('sem_pedido_total', '--')} Itens"
+        texto_comparativo = f"Ontem: {dados_ontem.get('total_scs_aberto', '--')} SCs | {dados_ontem.get('sem_pedido_total', '--')} Itens"
       elif erro_historico:
         texto_comparativo = "Comparativo indisponível (configure as credenciais do Google Sheets)"
       else:
