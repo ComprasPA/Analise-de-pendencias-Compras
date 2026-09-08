@@ -486,15 +486,17 @@ if df is not None:
       else:
         texto_comparativo = "Comparativo vs Ontem: Aguardando 2º dia"
 
+      border_ontem = "#cbd5e1" if is_tema_claro else "#334155"
       st.markdown(
           f"""
-            <div style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; text-align: center; height: 150px; display: flex; flex-direction: column; justify-content: center;">
+            <div style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; text-align: center; display: flex; flex-direction: column; justify-content: center;">
                 <div style="font-size: 0.95rem; font-weight: {weight_resumo}; margin-bottom: 2px;">VOLUMETRIA EM ABERTO</div>
                 <div style="font-size: 1.95rem; font-weight: bold; color: #2563eb; line-height: 1.1;">{total_sc_unicas_aberto}</div>
                 <div style="font-size: 0.85rem; font-weight: {weight_th};">Solicitações (SCs)</div>
                 <div style="border-top: 1px dashed #cbd5e1; margin: 2px 0;"></div>
                 <div style="font-size: 1.5rem; font-weight: bold; color: #d97706; line-height: 1.1;">{sem_pedido_total}</div>
-                <div style="font-size: 0.75rem; font-weight: {weight_th}; color: #64748b;">Itens Sem Pedido ({texto_comparativo})</div>
+                <div style="font-size: 0.85rem; font-weight: {weight_th};">Itens Sem Pedido</div>
+                <div style="margin-top: 6px; padding: 4px 6px; border: 1px solid {border_ontem}; border-radius: 4px; font-size: 0.72rem; color: #64748b;">{texto_comparativo}</div>
             </div>
             """,
           unsafe_allow_html=True,
