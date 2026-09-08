@@ -1,17 +1,73 @@
 import datetime
 import io
 import json
-import os
+import gspread
 import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+from google.oauth2.service_account import Credentials
 
 st.set_page_config(layout="wide", page_title="Panorama Executivo de Suprimentos")
 
-GOOGLE_SHEET_URL = (
-    "https://docs.google.com/spreadsheets/d/1e7pQ512ge5XMnXxsRODEO7V48KgWo6FpKeITFqBSg1o/export?format=xlsx"
-)
+FILE_ID = "1e7pQ512ge5XMnXxsRODEO7V48KgWo6FpKeITFqBSg1o"
+GOOGLE_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{FILE_ID}/export?format=xlsx"
+ABA_HISTORICO = "Historico_Snapshots"
+
+
+def obter_client_gspread():
+  """Autentica no Google Sheets com a mesma service account usada pelos
+  outros painéis (Portal do Comprador / Portal Gestão de Compras) - exige o
+  secret 'gcp_service_account' configurado nos Secrets deste app."""
+  scope = [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive",
+  ]
+  creds = Credentials.from_service_account_info(
+      dict(st.secrets["gcp_service_account"]), scopes=scope
+  )
+  return gspread.authorize(creds)
+
+
+def obter_aba_historico(client):
+  """Garante que a aba de histórico existe na mesma planilha de
+  Solicitações, criando com o cabeçalho padrão na primeira vez."""
+  spreadsheet = client.open_by_key(FILE_ID)
+  try:
+    return spreadsheet.worksheet(ABA_HISTORICO)
+  except gspread.WorksheetNotFound:
+    worksheet = spreadsheet.add_worksheet(
+        title=ABA_HISTORICO, rows=1000, cols=2
+    )
+    worksheet.update([["Data", "Dados"]], "A1")
+    return worksheet
+
+
+def carregar_historico_dia(worksheet, data_str):
+  """Lê o snapshot salvo pra uma data (YYYY-MM-DD); None se ainda não existir."""
+  try:
+    celula = worksheet.find(data_str, in_column=1)
+  except gspread.exceptions.CellNotFound:
+    return None
+  if not celula:
+    return None
+  try:
+    return json.loads(worksheet.cell(celula.row, 2).value)
+  except (TypeError, ValueError):
+    return None
+
+
+def salvar_historico_dia(worksheet, data_str, snapshot):
+  """Grava (ou atualiza, se já existir) o snapshot do dia."""
+  dados_json = json.dumps(snapshot, ensure_ascii=False)
+  try:
+    celula = worksheet.find(data_str, in_column=1)
+  except gspread.exceptions.CellNotFound:
+    celula = None
+  if celula:
+    worksheet.update_cell(celula.row, 2, dados_json)
+  else:
+    worksheet.append_row([data_str, dados_json], value_input_option="RAW")
 
 col_fonte, col_tema = st.columns([6, 1])
 with col_fonte:
@@ -144,19 +200,10 @@ MAPA_COMPRADORES = {
     "1244": "Sílvio",
 }
 
-ARQUIVO_HISTORICO = "historico_snapshots.json"
 df = None
 
 sla_geral_rot = 0
 sla_geral_emg = 0
-
-historico = {}
-if os.path.exists(ARQUIVO_HISTORICO):
-  try:
-    with open(ARQUIVO_HISTORICO, "r", encoding="utf-8") as f:
-      historico = json.load(f)
-  except Exception:
-    historico = {}
 
 
 @st.cache_data(ttl=86400)
@@ -316,8 +363,8 @@ if df is not None:
         "compradores": {},
     }
 
-    compradores = ["Ednilson", "Dayana", "Luiz", "Sílvio"]
-    for comp in compradores:
+    compradores_snapshot = ["Ednilson", "Dayana", "Luiz", "Sílvio"]
+    for comp in compradores_snapshot:
       df_c = df[df["Comprador_Resp"] == comp]
       if comp == "Luiz" and col_dt_emissao in df_c.columns:
         df_c = df_c[df_c[col_dt_emissao] >= pd.to_datetime("2026-07-06")]
@@ -334,14 +381,21 @@ if df is not None:
           "comprados": pedidos_emitidos_comp,
       }
 
-    historico[hoje_str] = snapshot_atual
+    # Salva o snapshot de hoje e lê o de ontem numa aba da própria planilha
+    # (não em disco local - o Streamlit Cloud tem disco efêmero e qualquer
+    # arquivo salvo ali some a cada sono/redeploy do app, que é por isso o
+    # histórico antigo nunca funcionava). Se as credenciais do Google Sheets
+    # ainda não estiverem configuradas nos Secrets deste app, o comparativo
+    # fica indisponível mas o resto do painel funciona normalmente.
+    dados_ontem = None
+    erro_historico = None
     try:
-      with open(ARQUIVO_HISTORICO, "w", encoding="utf-8") as f:
-        json.dump(historico, f, ensure_ascii=False, indent=4)
-    except Exception:
-      pass
-
-    dados_ontem = historico.get(ontem_str, None)
+      client_hist = obter_client_gspread()
+      worksheet_hist = obter_aba_historico(client_hist)
+      dados_ontem = carregar_historico_dia(worksheet_hist, ontem_str)
+      salvar_historico_dia(worksheet_hist, hoje_str, snapshot_atual)
+    except Exception as e:
+      erro_historico = str(e)
 
     st.markdown(
         f"""
@@ -427,6 +481,8 @@ if df is not None:
         s_scs = "+" if delta_scs > 0 else ""
         s_ped = "+" if delta_sem_ped > 0 else ""
         texto_comparativo = f"Ontem: {dados_ontem.get('total_scs_aberto', '--')} SCs ({s_scs}{delta_scs}) | {dados_ontem.get('sem_pedido_total', '--')} S/ Pedido ({s_ped}{delta_sem_ped})"
+      elif erro_historico:
+        texto_comparativo = "Comparativo indisponível (configure as credenciais do Google Sheets)"
       else:
         texto_comparativo = "Comparativo vs Ontem: Aguardando 2º dia"
 
@@ -927,6 +983,8 @@ if df is not None:
           s_sp = "+" if delta_sem_ped > 0 else ""
           s_cp = "+" if delta_comprados > 0 else ""
           texto_produtividade = f"Ontem S/Ped: {sem_ped_ontem} ({s_sp}{delta_sem_ped}) | Pedidos Fechados: {comprados_atual} ({s_cp}{delta_comprados})"
+        elif erro_historico:
+          texto_produtividade = "Produtividade Ontem: indisponível (Sheets não configurado)"
         else:
           texto_produtividade = "Produtividade Ontem: Aguardando 2º dia"
 
