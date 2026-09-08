@@ -13,51 +13,30 @@ GOOGLE_SHEET_URL = (
     "https://docs.google.com/spreadsheets/d/1e7pQ512ge5XMnXxsRODEO7V48KgWo6FpKeITFqBSg1o/export?format=xlsx"
 )
 
-with st.expander(
-    "⚙️ Abrir / Fechar Configurações (Sincronização, Data Base e Tema)",
-    expanded=False,
-):
-  col_cfg1, col_cfg2, col_cfg3 = st.columns([2, 1, 1])
-  with col_cfg1:
-    st.info("🔗 Fonte: Google Sheets (Guia: Solicitações)")
-    forcar_atualizacao = st.button("🔄 Sincronizar com Google Sheets Agora")
-  with col_cfg2:
-    data_base = st.date_input("Data base SLA:", datetime.date.today())
-  with col_cfg3:
-    tema_selecionado = st.selectbox(
-        "Selecione o Tema:",
-        ["Padrão do Sistema", "Claro", "Escuro", "Black (Preto Absoluto)"],
-        index=0,
-    )
+col_fonte, col_tema = st.columns([6, 1])
+with col_fonte:
+  st.caption("🔗 Fonte: Google Sheets (Guia: Solicitações) — sincronização automática")
+with col_tema:
+  modo_escuro = st.toggle("☀️ / 🌙", value=True, help="Alternar entre tema claro e escuro")
 
-is_tema_claro = tema_selecionado in ["Claro", "Padrão do Sistema"]
+tema_selecionado = "Escuro" if modo_escuro else "Claro"
+data_base = datetime.date.today()
 
-if tema_selecionado == "Black (Preto Absoluto)":
-  css_tema = """
-        .stApp { background-color: #000000 !important; color: #f8fafc !important; }
-        .header-box { background-color: #111111 !important; border: 1px solid #333333; color: #ffffff !important; }
-        .resumo-bar, .section-header { background-color: #1a1a1a !important; color: #ffffff !important; border: 1px solid #333333; }
-        div[data-testid="stVerticalBlock"] > div[style*="background-color: white"] { background-color: #121212 !important; border: 1px solid #333333 !important; color: #ffffff !important; }
-        p, span, label, div, h1, h2, h3, h4, h5, h6 { color: #f8fafc !important; }
-    """
-elif tema_selecionado == "Escuro":
+is_tema_claro = tema_selecionado == "Claro"
+
+if tema_selecionado == "Escuro":
   css_tema = """
         .stApp { background-color: #0e1117 !important; color: #f8fafc !important; }
         .header-box { background-color: #1f3b58 !important; color: #ffffff !important; }
         .resumo-bar, .section-header { background-color: #2b4c7e !important; color: #ffffff !important; }
         p, span, label, div, h1, h2, h3, h4, h5, h6 { color: #f8fafc !important; }
     """
-elif tema_selecionado == "Claro":
+else:
   css_tema = """
         .stApp { background-color: #ffffff !important; color: #334155 !important; }
         .header-box { background-color: #1e3a8a !important; color: #ffffff !important; }
         .resumo-bar, .section-header { background-color: #3b82f6 !important; color: #ffffff !important; }
         p, span, label, div, h1, h2, h3, h4, h5, h6 { color: #334155 !important; }
-    """
-else:
-  css_tema = """
-        .header-box { background-color: #1e3a8a !important; color: #ffffff !important; }
-        .resumo-bar, .section-header { background-color: #3b82f6 !important; color: #ffffff !important; }
     """
 
 weight_title = "600" if is_tema_claro else "bold"
@@ -180,7 +159,7 @@ if os.path.exists(ARQUIVO_HISTORICO):
     historico = {}
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=86400)
 def carregar_dados_gsheets(url):
   response = requests.get(url)
   response.raise_for_status()
@@ -192,8 +171,6 @@ def carregar_dados_gsheets(url):
 
 
 try:
-  if forcar_atualizacao:
-    st.cache_data.clear()
   df = carregar_dados_gsheets(GOOGLE_SHEET_URL)
 except Exception as e:
   st.error(f"⚠️ Erro ao conectar com o Google Sheets: {e}")
