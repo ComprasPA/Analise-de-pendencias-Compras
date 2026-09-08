@@ -355,9 +355,10 @@ if df is not None:
     compradores_snapshot = ["Ednilson", "Dayana", "Sílvio"]
     for comp in compradores_snapshot:
       df_c = df[df["Comprador_Resp"] == comp]
+      df_c_aberto = df_c[df_c["Status_Detalhado"] != "Atendidas"]
 
       sem_ped_comp = int(
-          (~df_c["Tem_Pedido"].fillna(False).astype(bool)).sum()
+          (~df_c_aberto["Tem_Pedido"].fillna(False).astype(bool)).sum()
       )
       pedidos_emitidos_comp = int(
           df_c["Tem_Pedido"].fillna(False).astype(bool).sum()
@@ -937,9 +938,16 @@ if df is not None:
         )
 
         df_comp_total = df[df["Comprador_Resp"] == comp].copy()
+        df_comp_aberto = df_comp_total[
+            df_comp_total["Status_Detalhado"] != "Atendidas"
+        ].copy()
 
+        # "Fila" é o backlog atual - só itens ainda em aberto, senão soma
+        # junto solicitações já Atendidas que nunca tiveram Pedido formal
+        # (compra direta, serviço, rejeitado etc.) e o número não bate com
+        # a soma das barras de No Prazo/Atenção/Fora do Prazo logo abaixo.
         sem_ped_atual = int(
-            (~df_comp_total["Tem_Pedido"].fillna(False).astype(bool)).sum()
+            (~df_comp_aberto["Tem_Pedido"].fillna(False).astype(bool)).sum()
         )
         comprados_atual = int(
             df_comp_total["Tem_Pedido"].fillna(False).astype(bool).sum()
@@ -978,11 +986,8 @@ if df is not None:
           qtd_pedidos_gerados = comprados_atual
 
           if col_criticidade:
-            df_comp_aberto_crit = df_comp_total[
-                df_comp_total["Status_Detalhado"] != "Atendidas"
-            ]
-            df_comp_crit = df_comp_aberto_crit[
-                df_comp_aberto_crit[col_criticidade]
+            df_comp_crit = df_comp_aberto[
+                df_comp_aberto[col_criticidade]
                 .astype(str)
                 .str.upper()
                 .isin(["ROTINEIRA", "EMERGENCIAL"])
@@ -1053,10 +1058,6 @@ if df is not None:
               config={"displayModeBar": False},
               key=f"gauge_rendimento_{comp}",
           )
-
-          df_comp_aberto = df_comp_total[
-              df_comp_total["Status_Detalhado"] != "Atendidas"
-          ].copy()
 
           if not df_comp_aberto.empty:
             comp_stats = (
