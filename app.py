@@ -177,31 +177,15 @@ cor_texto_grafico = "#ffffff" if not is_tema_claro else "#334155"
 familia_fonte_grafico = "Arial" if is_tema_claro else "Arial Black"
 
 MAPA_COMPRADORES = {
-    "1225": "Ednilson",
-    "1235": "Ednilson",
-    "1241": "Ednilson",
-    "1236": "Ednilson",
-    "1238": "Dayana",
-    "1243": "Dayana",
-    "1217": "Dayana",
-    "1237": "Dayana",
-    "1223": "Luiz",
-    "1240": "Luiz",
-    "9001": "Luiz",
-    "2003": "Luiz",
-    "2002": "Luiz",
-    "2001": "Luiz",
-    "3003": "Luiz",
-    "2010": "Luiz",
-    "3007": "Luiz",
-    "3010": "Luiz",
-    "3000": "Luiz",
-    "3002": "Luiz",
-    "3006": "Luiz",
-    "1239": "Luiz",
-    "3013": "Luiz",
-    "3024": "Luiz",
+    "1225": "Sílvio",
+    "1235": "Sílvio",
     "1244": "Sílvio",
+    "1241": "Sílvio",
+    "1245": "Sílvio",
+    "1238": "Ednilson",
+    "1243": "Ednilson",
+    "1239": "Ednilson",
+    "1232": "Ednilson",
 }
 
 df = None
@@ -265,9 +249,9 @@ if df is not None:
         .str[0]
         .str.strip()
     )
-    df["Comprador_Resp"] = df["CC_clean"].map(MAPA_COMPRADORES).fillna(
-        "Não Mapeado / Outros"
-    )
+    # Qualquer Centro de Custo que não esteja explicitamente mapeado pra
+    # Sílvio ou Ednilson acima é da Dayana.
+    df["Comprador_Resp"] = df["CC_clean"].map(MAPA_COMPRADORES).fillna("Dayana")
 
     def detalhar_status(x):
       x_str = str(x).strip().upper()
