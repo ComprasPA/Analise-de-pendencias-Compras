@@ -472,15 +472,7 @@ if df is not None:
 
     with row1_c1:
       if dados_ontem:
-        delta_scs = total_sc_unicas_aberto - dados_ontem.get(
-            "total_scs_aberto", total_sc_unicas_aberto
-        )
-        delta_sem_ped = sem_pedido_total - dados_ontem.get(
-            "sem_pedido_total", sem_pedido_total
-        )
-        s_scs = "+" if delta_scs > 0 else ""
-        s_ped = "+" if delta_sem_ped > 0 else ""
-        texto_comparativo = f"Ontem: {dados_ontem.get('total_scs_aberto', '--')} SCs ({s_scs}{delta_scs}) | {dados_ontem.get('sem_pedido_total', '--')} S/ Pedido ({s_ped}{delta_sem_ped})"
+        texto_comparativo = f"{dados_ontem.get('total_scs_aberto', '--')} SCs | {dados_ontem.get('sem_pedido_total', '--')} Itens"
       elif erro_historico:
         texto_comparativo = "Comparativo indisponível (configure as credenciais do Google Sheets)"
       else:
