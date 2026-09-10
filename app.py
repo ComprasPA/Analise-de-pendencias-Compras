@@ -190,14 +190,23 @@ MAPA_COMPRADORES = {
 
 df = None
 df_criticidade = pd.DataFrame(columns=["Solicitacao", "Criticidade"])
-df_pendencias_abertas = pd.DataFrame(columns=["Solicitacao", "Item"])
+df_pedidos = pd.DataFrame(columns=["SOLICITAÇÃO", "PRODUTO"])
 
 sla_geral_rot = 0
 sla_geral_emg = 0
 
 ABA_SOLICITACOES = "Solicitacoes"
 ABA_CRITICIDADE = "Criticidade_Solicitacoes"
-ABA_PENDENCIAS_ABERTAS = "Pendencias_Abertas"
+ABA_PEDIDOS = "Pedidos"
+
+# Status manuais lançados no Portal do Comprador (nunca mexidos por aqui,
+# só lidos) - uma Solicitação nesses estados não entra no backlog "em
+# aberto" deste painel. REVISAR é escrito pelo script
+# atualizar_pendencias_abertas.py quando a Solicitação não aparece mais no
+# browse "Pendências SC" do TOTVS nem tem Pedido - sinal de que fechou por
+# algum caminho que a gente ainda não sabe qual, e o comprador precisa
+# checar (rejeitou? virou contrato? etc).
+STATUS_FORA_DO_BACKLOG = {"REJEITADO", "CONTRATO", "REVISAR"}
 
 # Limite de SLA (dias) por criticidade - mesmo usado nos cartões "SLA Médio"
 # mais abaixo. Serve de base pra classificar a idade de um item ainda sem
@@ -218,17 +227,12 @@ def carregar_dados_gsheets(url):
     )
   except ValueError:
     df_crit = pd.DataFrame(columns=["Solicitacao", "Criticidade"])
-  try:
-    df_pend = pd.read_excel(
-        io.BytesIO(conteudo), sheet_name=ABA_PENDENCIAS_ABERTAS, dtype=str
-    )
-  except ValueError:
-    df_pend = pd.DataFrame(columns=["Solicitacao", "Item"])
-  return df_sol, df_crit, df_pend
+  df_ped = pd.read_excel(io.BytesIO(conteudo), sheet_name=ABA_PEDIDOS, dtype=str)
+  return df_sol, df_crit, df_ped
 
 
 try:
-  df, df_criticidade, df_pendencias_abertas = carregar_dados_gsheets(GOOGLE_SHEET_URL)
+  df, df_criticidade, df_pedidos = carregar_dados_gsheets(GOOGLE_SHEET_URL)
 except Exception as e:
   st.error(f"⚠️ Erro ao conectar com o Google Sheets: {e}")
 
@@ -280,15 +284,31 @@ if df is not None:
         (hoje - df[col_dt_emissao]).dt.days.clip(lower=0).fillna(0).astype(int)
     )
 
-    # "Tem_Pedido" é só informativo aqui (badge "C/ Pedido" nos cartões de
-    # comprador) - NÃO decide mais o que está em aberto (ver abaixo).
+    # Pedido Gerado = Atendida, sempre - seja porque a própria célula
+    # PEDIDO da Solicitação já tem número, seja porque já existe uma linha
+    # correspondente na aba Pedidos (a "baixa" oficial). Os dois sinais se
+    # complementam: a célula pode estar preenchida antes da aba Pedidos
+    # notar, ou vice-versa.
     s_ped = df[col_pedido_num].dropna().astype(str).str.strip()
-    has_pedido = (
+    pedido_na_propria_linha = (
         s_ped.str.contains(r"\d", regex=True)
         & (s_ped != "")
         & (s_ped.str.upper() != "NAN")
-    )
-    df["Tem_Pedido"] = has_pedido.reindex(df.index, fill_value=False)
+    ).reindex(df.index, fill_value=False)
+
+    chave_prod = df["PRODUTO"].astype(str).str.split(".").str[0].str.strip()
+    chave_solic_produto = chave_solic + "|" + chave_prod
+    if not df_pedidos.empty and "SOLICITAÇÃO" in df_pedidos.columns and "PRODUTO" in df_pedidos.columns:
+      chaves_pedidos = set(
+          df_pedidos["SOLICITAÇÃO"].astype(str).str.split(".").str[0].str.strip()
+          + "|"
+          + df_pedidos["PRODUTO"].astype(str).str.split(".").str[0].str.strip()
+      )
+    else:
+      chaves_pedidos = set()
+    pedido_na_aba_pedidos = chave_solic_produto.isin(chaves_pedidos)
+
+    df["Tem_Pedido"] = pedido_na_propria_linha | pedido_na_aba_pedidos
 
     def classificar_aging(row):
       limite = LIMITE_SLA_DIAS.get(
@@ -302,27 +322,15 @@ if df is not None:
       else:
         return "No Prazo"
 
-    # O que está "em aberto" é definido pelo browse "Pendências SC" do
-    # TOTVS (aba Pendencias_Abertas, substituída por inteiro a cada novo
-    # export - ver atualizar_pendencias_abertas.py), não por um campo
-    # derivado da aba Solicitacoes. Essa aba só cresce (import nunca marca
-    # linha como fechada), então usar Tem_Pedido/STATUS de lá pra decidir
-    # "aberto" ia perpetuando solicitações que o TOTVS já fechou por outro
-    # caminho (ex: compra direta) como se ainda estivessem pendentes.
-    chave_item = (
-        chave_solic
-        + "-"
-        + df["ITEM SC"].astype(str).str.split(".").str[0].str.strip()
+    # Fora do backlog "em aberto": tem Pedido gerado, OU está num dos
+    # status manuais/de revisão que tiram a Solicitação da fila (ver
+    # STATUS_FORA_DO_BACKLOG). O resto é o que realmente ainda aguarda
+    # compra, e aí sim entra na classificação de idade.
+    status_fechado = (
+        df["STATUS"].astype(str).str.strip().str.upper().isin(STATUS_FORA_DO_BACKLOG)
     )
-    chave_pend_aberta = (
-        df_pendencias_abertas["Solicitacao"].astype(str).str.strip()
-        + "-"
-        + df_pendencias_abertas["Item"].astype(str).str.strip()
-    )
-    esta_aberta = chave_item.isin(set(chave_pend_aberta))
-
     df["Status_Detalhado"] = pd.Series("Atendidas", index=df.index).where(
-        ~esta_aberta, None
+        df["Tem_Pedido"] | status_fechado, None
     )
     mask_sem_pedido = df["Status_Detalhado"].isna()
     df.loc[mask_sem_pedido, "Status_Detalhado"] = df.loc[mask_sem_pedido].apply(

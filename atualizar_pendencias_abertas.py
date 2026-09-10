@@ -1,16 +1,18 @@
-"""Atualiza a aba "Pendencias_Abertas" na planilha do Panorama com a lista
-de itens de Solicitação REALMENTE em aberto agora, segundo o browse
-"Pendências SC" do TOTVS.
+"""Reconcilia a aba "Solicitacoes" com o browse "Pendências SC" do TOTVS,
+marcando como "REVISAR" toda Solicitação que:
+  - não tem Pedido preenchido, e
+  - não está mais listada no export de Pendências (ou seja, o TOTVS não
+    considera mais ela em aberto, mas por algum motivo isso nunca virou um
+    Pedido nem foi classificado como Rejeitado/Contrato pelo comprador).
 
-Diferente da aba "Solicitacoes" (que só cresce - o import de lá nunca marca
-uma linha como fechada, só preenche campo em branco ou adiciona linha
-nova), este arquivo É a verdade do que está aberto no TOTVS neste
-instante: se uma Solicitação/Item não está nele, não está mais aberta,
-ponto. Por isso este script SUBSTITUI o conteúdo da aba inteira a cada
-execução (não faz upsert) - ele reflete um retrato do momento, não um
-histórico acumulado.
+Isso pede pro comprador checar manualmente essas solicitações no Portal do
+Comprador (rejeitou? virou contrato? outra coisa?) - é ele quem decide,
+este script só sinaliza.
 
-Rode este script toda vez que chegar um novo export "Pendências SC".
+NUNCA mexe em: linhas com Pedido preenchido, nem em REJEITADO/CONTRATO já
+lançados manualmente (esses são decisão do comprador, não deste script).
+Se uma Solicitação marcada REVISAR volta a aparecer num export novo de
+Pendências, o script desfaz a marcação (volta pra status em branco).
 
 Uso:
     python atualizar_pendencias_abertas.py --arquivo "Pendencias SC.xlsx" --secrets caminho\\secrets.toml
@@ -23,8 +25,9 @@ import pandas as pd
 from google.oauth2.service_account import Credentials
 
 FILE_ID = "1e7pQ512ge5XMnXxsRODEO7V48KgWo6FpKeITFqBSg1o"
-ABA_PENDENCIAS = "Pendencias_Abertas"
-CABECALHO = ["Solicitacao", "Item"]
+ABA_SOLICITACOES = "Solicitacoes"
+STATUS_REVISAR = "REVISAR"
+STATUS_MANUAIS_PROTEGIDOS = {"REJEITADO", "CONTRATO"}
 
 
 def obter_client(secrets_path):
@@ -45,32 +48,73 @@ def resolver_coluna(colunas, contem):
   return achada
 
 
-def carregar_arquivo(caminho):
+def carregar_pendencias_totvs(caminho):
+  """Retorna o conjunto de (Solicitacao, Item) que o TOTVS considera em
+  aberto agora, segundo o export "Pendências SC"."""
   df = pd.read_excel(caminho, sheet_name="Listagem do Browse", header=1)
   df.columns = df.columns.astype(str).str.strip()
 
   col_solic = resolver_coluna(df.columns, "Numero da SC")
   col_item = resolver_coluna(df.columns, "Item da SC")
 
-  df = df.dropna(subset=[col_solic, col_item]).copy()
-  saida = pd.DataFrame({
-      "Solicitacao": df[col_solic].apply(lambda v: str(int(v))),
-      "Item": df[col_item].apply(lambda v: str(int(v))),
-  })
-  return saida.drop_duplicates()
+  df = df.dropna(subset=[col_solic, col_item])
+  return set(
+      zip(
+          df[col_solic].apply(lambda v: str(int(v))),
+          df[col_item].apply(lambda v: str(int(v))),
+      )
+  )
 
 
-def obter_ou_criar_aba(spreadsheet):
-  try:
-    return spreadsheet.worksheet(ABA_PENDENCIAS)
-  except gspread.WorksheetNotFound:
-    return spreadsheet.add_worksheet(title=ABA_PENDENCIAS, rows=2000, cols=len(CABECALHO))
+def reconciliar(worksheet, pendentes_totvs):
+  valores = worksheet.get_all_values()
+  if not valores:
+    return 0, 0
 
+  cabecalho = valores[0]
+  idx_solic = cabecalho.index("SOLICITAÇÃO")
+  idx_item = cabecalho.index("ITEM SC")
+  idx_pedido = cabecalho.index("PEDIDO")
+  idx_status = cabecalho.index("STATUS")
+  n_cols = len(cabecalho)
 
-def substituir(worksheet, df):
-  worksheet.clear()
-  linhas = [CABECALHO] + df.values.tolist()
-  worksheet.update(linhas, "A1")
+  celulas = []
+  qtd_marcadas = 0
+  qtd_desmarcadas = 0
+
+  for i, linha in enumerate(valores[1:], start=2):
+    linha_pad = linha + [""] * (n_cols - len(linha))
+
+    solic = str(linha_pad[idx_solic]).strip()
+    item = str(linha_pad[idx_item]).strip()
+    if not solic or not item:
+      continue
+    solic = solic.split(".")[0]
+    item = item.split(".")[0]
+
+    pedido = linha_pad[idx_pedido].strip()
+    if pedido and pedido.lower() != "nan":
+      continue  # tem Pedido - nao mexe
+
+    status_atual = linha_pad[idx_status].strip().upper()
+    if status_atual in STATUS_MANUAIS_PROTEGIDOS:
+      continue  # decisao do comprador - nao mexe
+
+    esta_pendente_totvs = (solic, item) in pendentes_totvs
+
+    if status_atual == STATUS_REVISAR:
+      if esta_pendente_totvs:
+        celulas.append(gspread.Cell(i, idx_status + 1, ""))
+        qtd_desmarcadas += 1
+    else:
+      if not esta_pendente_totvs:
+        celulas.append(gspread.Cell(i, idx_status + 1, STATUS_REVISAR))
+        qtd_marcadas += 1
+
+  if celulas:
+    worksheet.update_cells(celulas, value_input_option="RAW")
+
+  return qtd_marcadas, qtd_desmarcadas
 
 
 def main():
@@ -81,11 +125,14 @@ def main():
 
   client = obter_client(args.secrets)
   spreadsheet = client.open_by_key(FILE_ID)
-  worksheet = obter_ou_criar_aba(spreadsheet)
+  worksheet = spreadsheet.worksheet(ABA_SOLICITACOES)
 
-  df = carregar_arquivo(args.arquivo)
-  substituir(worksheet, df)
-  print(f"Aba '{ABA_PENDENCIAS}' substituida: {len(df)} itens em aberto agora.")
+  pendentes_totvs = carregar_pendencias_totvs(args.arquivo)
+  qtd_marcadas, qtd_desmarcadas = reconciliar(worksheet, pendentes_totvs)
+  print(
+      f"{qtd_marcadas} solicitacao(oes) marcada(s) como REVISAR, "
+      f"{qtd_desmarcadas} desmarcada(s) (voltaram a aparecer no TOTVS)."
+  )
 
 
 if __name__ == "__main__":
