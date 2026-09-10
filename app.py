@@ -190,12 +190,14 @@ MAPA_COMPRADORES = {
 
 df = None
 df_criticidade = pd.DataFrame(columns=["Solicitacao", "Criticidade"])
+df_pendencias_abertas = pd.DataFrame(columns=["Solicitacao", "Item"])
 
 sla_geral_rot = 0
 sla_geral_emg = 0
 
 ABA_SOLICITACOES = "Solicitacoes"
 ABA_CRITICIDADE = "Criticidade_Solicitacoes"
+ABA_PENDENCIAS_ABERTAS = "Pendencias_Abertas"
 
 # Limite de SLA (dias) por criticidade - mesmo usado nos cartões "SLA Médio"
 # mais abaixo. Serve de base pra classificar a idade de um item ainda sem
@@ -216,11 +218,17 @@ def carregar_dados_gsheets(url):
     )
   except ValueError:
     df_crit = pd.DataFrame(columns=["Solicitacao", "Criticidade"])
-  return df_sol, df_crit
+  try:
+    df_pend = pd.read_excel(
+        io.BytesIO(conteudo), sheet_name=ABA_PENDENCIAS_ABERTAS, dtype=str
+    )
+  except ValueError:
+    df_pend = pd.DataFrame(columns=["Solicitacao", "Item"])
+  return df_sol, df_crit, df_pend
 
 
 try:
-  df, df_criticidade = carregar_dados_gsheets(GOOGLE_SHEET_URL)
+  df, df_criticidade, df_pendencias_abertas = carregar_dados_gsheets(GOOGLE_SHEET_URL)
 except Exception as e:
   st.error(f"⚠️ Erro ao conectar com o Google Sheets: {e}")
 
@@ -272,6 +280,8 @@ if df is not None:
         (hoje - df[col_dt_emissao]).dt.days.clip(lower=0).fillna(0).astype(int)
     )
 
+    # "Tem_Pedido" é só informativo aqui (badge "C/ Pedido" nos cartões de
+    # comprador) - NÃO decide mais o que está em aberto (ver abaixo).
     s_ped = df[col_pedido_num].dropna().astype(str).str.strip()
     has_pedido = (
         s_ped.str.contains(r"\d", regex=True)
@@ -292,14 +302,27 @@ if df is not None:
       else:
         return "No Prazo"
 
-    # Uma Solicitação com Pedido já saiu do "aguardando compra" - o que
-    # acontece com ela depois (aprovação, entrega, pagamento) é
-    # acompanhado no Portal Gestão de Compras, fora do escopo deste painel.
-    # Rejeitada também sai da fila - nunca vai ter Pedido, então contá-la
-    # como "aguardando" só infla o backlog com pedido morto.
-    rejeitada = df["STATUS"].astype(str).str.strip().str.upper() == "REJEITADO"
+    # O que está "em aberto" é definido pelo browse "Pendências SC" do
+    # TOTVS (aba Pendencias_Abertas, substituída por inteiro a cada novo
+    # export - ver atualizar_pendencias_abertas.py), não por um campo
+    # derivado da aba Solicitacoes. Essa aba só cresce (import nunca marca
+    # linha como fechada), então usar Tem_Pedido/STATUS de lá pra decidir
+    # "aberto" ia perpetuando solicitações que o TOTVS já fechou por outro
+    # caminho (ex: compra direta) como se ainda estivessem pendentes.
+    chave_item = (
+        chave_solic
+        + "-"
+        + df["ITEM SC"].astype(str).str.split(".").str[0].str.strip()
+    )
+    chave_pend_aberta = (
+        df_pendencias_abertas["Solicitacao"].astype(str).str.strip()
+        + "-"
+        + df_pendencias_abertas["Item"].astype(str).str.strip()
+    )
+    esta_aberta = chave_item.isin(set(chave_pend_aberta))
+
     df["Status_Detalhado"] = pd.Series("Atendidas", index=df.index).where(
-        df["Tem_Pedido"] | rejeitada, None
+        ~esta_aberta, None
     )
     mask_sem_pedido = df["Status_Detalhado"].isna()
     df.loc[mask_sem_pedido, "Status_Detalhado"] = df.loc[mask_sem_pedido].apply(
