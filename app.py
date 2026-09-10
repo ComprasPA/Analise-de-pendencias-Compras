@@ -189,24 +189,38 @@ MAPA_COMPRADORES = {
 }
 
 df = None
+df_criticidade = pd.DataFrame(columns=["Solicitacao", "Criticidade"])
 
 sla_geral_rot = 0
 sla_geral_emg = 0
+
+ABA_SOLICITACOES = "Solicitacoes"
+ABA_CRITICIDADE = "Criticidade_Solicitacoes"
+
+# Limite de SLA (dias) por criticidade - mesmo usado nos cartões "SLA Médio"
+# mais abaixo. Serve de base pra classificar a idade de um item ainda sem
+# Pedido em No Prazo/Atenção/Fora do Prazo (ver classificar_aging).
+LIMITE_SLA_DIAS = {"EMERGENCIAL": 3, "ROTINEIRA": 15}
+LIMITE_SLA_PADRAO = 15
 
 
 @st.cache_data(ttl=86400)
 def carregar_dados_gsheets(url):
   response = requests.get(url)
   response.raise_for_status()
-  xls = pd.ExcelFile(io.BytesIO(response.content))
-  sheet_name = (
-      "Solicitações" if "Solicitações" in xls.sheet_names else xls.sheet_names[0]
-  )
-  return pd.read_excel(io.BytesIO(response.content), sheet_name=sheet_name)
+  conteudo = response.content
+  df_sol = pd.read_excel(io.BytesIO(conteudo), sheet_name=ABA_SOLICITACOES)
+  try:
+    df_crit = pd.read_excel(
+        io.BytesIO(conteudo), sheet_name=ABA_CRITICIDADE, dtype=str
+    )
+  except ValueError:
+    df_crit = pd.DataFrame(columns=["Solicitacao", "Criticidade"])
+  return df_sol, df_crit
 
 
 try:
-  df = carregar_dados_gsheets(GOOGLE_SHEET_URL)
+  df, df_criticidade = carregar_dados_gsheets(GOOGLE_SHEET_URL)
 except Exception as e:
   st.error(f"⚠️ Erro ao conectar com o Google Sheets: {e}")
 
@@ -214,32 +228,19 @@ if df is not None:
   try:
     df.columns = df.columns.astype(str).str.strip()
 
-    col_status = "STATUS" if "STATUS" in df.columns else None
-    col_criticidade = "CRITICIDADE" if "CRITICIDADE" in df.columns else None
-    col_sc = (
-        "Solicitação"
-        if "Solicitação" in df.columns
-        else ("Cod SC. SCM" if "Cod SC. SCM" in df.columns else None)
-    )
-    col_cc = "Centro de Custo" if "Centro de Custo" in df.columns else None
-    col_dt_emissao = (
-        "Data Solicitação" if "Data Solicitação" in df.columns else None
-    )
-    col_dt_pedido = "Data Pedido" if "Data Pedido" in df.columns else None
-
-    col_pedido_num = None
-    for c in ["Pedido", "Nº Pedido", "Num. Pedido", "Nro Pedido", "Cod Pedido"]:
-      if c in df.columns:
-        col_pedido_num = c
-        break
+    col_sc = "SOLICITAÇÃO"
+    col_cc = "CENTRO DE CUSTO"
+    col_dt_emissao = "DATA EMISSAO"
+    col_pedido_num = "PEDIDO"
+    col_criticidade = "CRITICIDADE"
 
     hoje = pd.to_datetime(data_base)
     hoje_str = hoje.strftime("%Y-%m-%d")
     ontem_str = (hoje - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 
-    df[col_dt_emissao] = pd.to_datetime(df[col_dt_emissao], errors="coerce")
-    if col_dt_pedido:
-      df[col_dt_pedido] = pd.to_datetime(df[col_dt_pedido], errors="coerce")
+    df[col_dt_emissao] = pd.to_datetime(
+        df[col_dt_emissao], errors="coerce", dayfirst=True
+    )
 
     df["CC_clean"] = (
         pd.to_numeric(df[col_cc], errors="coerce")
@@ -253,48 +254,57 @@ if df is not None:
     # Sílvio ou Ednilson acima é da Dayana.
     df["Comprador_Resp"] = df["CC_clean"].map(MAPA_COMPRADORES).fillna("Dayana")
 
-    def detalhar_status(x):
-      x_str = str(x).strip().upper()
-      if x_str == "FINALIZADO":
-        return "Atendidas"
-      elif "FORA" in x_str:
+    # Criticidade vem de uma aba separada ("Criticidade_Solicitacoes"),
+    # alimentada manualmente enquanto o TOTVS não carrega esse campo (troca
+    # de sistema em andamento - ver atualizar_criticidade.py). Faz join pelo
+    # número da Solicitação; o que ainda não tem correspondência fica "" -
+    # some naturalmente dos gauges de Rotineira/Emergencial até o próximo
+    # arquivo de Cotações preencher.
+    chave_solic = df[col_sc].astype(str).str.split(".").str[0].str.strip()
+    mapa_criticidade = (
+        df_criticidade.dropna(subset=["Solicitacao"])
+        .set_index("Solicitacao")["Criticidade"]
+        .to_dict()
+    )
+    df[col_criticidade] = chave_solic.map(mapa_criticidade).fillna("")
+
+    df["Days"] = (
+        (hoje - df[col_dt_emissao]).dt.days.clip(lower=0).fillna(0).astype(int)
+    )
+
+    s_ped = df[col_pedido_num].dropna().astype(str).str.strip()
+    has_pedido = (
+        s_ped.str.contains(r"\d", regex=True)
+        & (s_ped != "")
+        & (s_ped.str.upper() != "NAN")
+    )
+    df["Tem_Pedido"] = has_pedido.reindex(df.index, fill_value=False)
+
+    def classificar_aging(row):
+      limite = LIMITE_SLA_DIAS.get(
+          str(row[col_criticidade]).strip().upper(), LIMITE_SLA_PADRAO
+      )
+      dias = row["Days"]
+      if dias > limite:
         return "Fora do Prazo"
-      elif "ATENÇÃO" in x_str:
+      elif dias >= limite * 0.7:
         return "Atenção"
       else:
         return "No Prazo"
 
-    if col_status:
-      df["Status_Detalhado"] = df[col_status].apply(detalhar_status)
-    else:
-      df["Status_Detalhado"] = "No Prazo"
-
-    def calcular_sla(row):
-      status = str(row.get(col_status, "")).strip().upper()
-      dt_ini = row[col_dt_emissao]
-      if pd.isna(dt_ini):
-        return 0
-      if (
-          status == "FINALIZADO"
-          and col_dt_pedido
-          and not pd.isna(row[col_dt_pedido])
-      ):
-        return max((row[col_dt_pedido] - dt_ini).days, 0)
-      else:
-        return max((hoje - dt_ini).days, 0)
-
-    df["Days"] = df.apply(calcular_sla, axis=1)
-
-    if col_pedido_num:
-      s_ped = df[col_pedido_num].dropna().astype(str).str.strip()
-      has_pedido = (
-          s_ped.str.contains(r"\d", regex=True)
-          & (s_ped != "")
-          & (s_ped.str.upper() != "NAN")
-      )
-      df["Tem_Pedido"] = has_pedido
-    else:
-      df["Tem_Pedido"] = False
+    # Uma Solicitação com Pedido já saiu do "aguardando compra" - o que
+    # acontece com ela depois (aprovação, entrega, pagamento) é
+    # acompanhado no Portal Gestão de Compras, fora do escopo deste painel.
+    # Rejeitada também sai da fila - nunca vai ter Pedido, então contá-la
+    # como "aguardando" só infla o backlog com pedido morto.
+    rejeitada = df["STATUS"].astype(str).str.strip().str.upper() == "REJEITADO"
+    df["Status_Detalhado"] = pd.Series("Atendidas", index=df.index).where(
+        df["Tem_Pedido"] | rejeitada, None
+    )
+    mask_sem_pedido = df["Status_Detalhado"].isna()
+    df.loc[mask_sem_pedido, "Status_Detalhado"] = df.loc[mask_sem_pedido].apply(
+        classificar_aging, axis=1
+    )
 
     df_aberto = df[df["Status_Detalhado"] != "Atendidas"].copy()
     df_aberto = df_aberto.dropna(subset=[col_sc])
@@ -311,12 +321,10 @@ if df is not None:
         (~df_aberto["Tem_Pedido"].fillna(False).astype(bool)).sum()
     )
 
-    # SLA médio só faz sentido pra itens ainda em aberto: "Data Pedido" nunca
-    # vem preenchida nesta planilha, então o "Days" de um item Atendida não
-    # tem como congelar na data real de fechamento e ficava contando pra
-    # sempre a partir da Data Solicitação - inflando a média com pedidos já
-    # finalizados há meses. Restringir aos itens em aberto reflete a
-    # realidade: a idade do que ainda está pendente.
+    # SLA médio só faz sentido pra itens ainda em aberto - "Days" mede idade
+    # desde a Solicitação, e uma vez com Pedido isso deixa de ser uma
+    # espera de compra (o acompanhamento daí em diante é no Portal Gestão
+    # de Compras, não aqui).
     df_geral_crit = df[df["Status_Detalhado"] != "Atendidas"].copy()
 
     if col_criticidade:
@@ -691,7 +699,7 @@ if df is not None:
           ' ITENS)</div>',
           unsafe_allow_html=True,
       )
-      if col_criticidade and col_status:
+      if col_criticidade:
         df_crit_stat = df_aberto[
             df_aberto[col_criticidade]
             .astype(str)
@@ -700,7 +708,7 @@ if df is not None:
         ]
         if not df_crit_stat.empty:
           crit_stats = (
-              df_crit_stat.groupby([col_criticidade, col_status])
+              df_crit_stat.groupby([col_criticidade, "Status_Detalhado"])
               .size()
               .reset_index(name="Quantidade")
           )
@@ -711,7 +719,9 @@ if df is not None:
           }
           fig_crit_stat = go.Figure()
           for status_val in ["NO PRAZO", "ATENÇÃO", "FORA DO PRAZO"]:
-            df_sub = crit_stats[crit_stats[col_status].str.upper() == status_val]
+            df_sub = crit_stats[
+                crit_stats["Status_Detalhado"].str.upper() == status_val
+            ]
             if not df_sub.empty:
               fig_crit_stat.add_trace(
                   go.Bar(
