@@ -14,6 +14,13 @@ lançados manualmente (esses são decisão do comprador, não deste script).
 Se uma Solicitação marcada REVISAR volta a aparecer num export novo de
 Pendências, o script desfaz a marcação (volta pra status em branco).
 
+Também cruza com a aba Pedidos (por SOLICITAÇÃO+PRODUTO, igual o app.py
+faz pro painel) antes de marcar qualquer REVISAR - Pedido Gerado é
+Atendida sempre, mesmo que a célula PEDIDO da própria Solicitação ainda
+não tenha sido preenchida. Isso evita marcar REVISAR numa solicitação que
+já tem Pedido (só ainda não apareceu na exportação de Pendências), e
+desmarca automaticamente quem já estava REVISAR e ganhou Pedido depois.
+
 Uso:
     python atualizar_pendencias_abertas.py --arquivo "Pendencias SC.xlsx" --secrets caminho\\secrets.toml
 """
@@ -66,7 +73,28 @@ def carregar_pendencias_totvs(caminho):
   )
 
 
-def reconciliar(worksheet, pendentes_totvs):
+def carregar_chaves_pedidos(spreadsheet):
+  """Conjunto de (Solicitacao, Produto) com Pedido real na aba Pedidos -
+  mesma chave que o app.py usa pro painel."""
+  worksheet = spreadsheet.worksheet("Pedidos")
+  valores = worksheet.get_all_values()
+  if not valores:
+    return set()
+  cabecalho = valores[0]
+  idx_solic = cabecalho.index("SOLICITAÇÃO")
+  idx_produto = cabecalho.index("PRODUTO")
+  chaves = set()
+  for linha in valores[1:]:
+    if len(linha) <= max(idx_solic, idx_produto):
+      continue
+    solic = linha[idx_solic].strip().split(".")[0]
+    produto = linha[idx_produto].strip().split(".")[0]
+    if solic and produto:
+      chaves.add((solic, produto))
+  return chaves
+
+
+def reconciliar(worksheet, pendentes_totvs, chaves_pedidos):
   valores = worksheet.get_all_values()
   if not valores:
     return 0, 0
@@ -75,6 +103,7 @@ def reconciliar(worksheet, pendentes_totvs):
   idx_solic = cabecalho.index("SOLICITAÇÃO")
   idx_item = cabecalho.index("ITEM SC")
   idx_pedido = cabecalho.index("PEDIDO")
+  idx_produto = cabecalho.index("PRODUTO")
   idx_status = cabecalho.index("STATUS")
   n_cols = len(cabecalho)
 
@@ -91,12 +120,21 @@ def reconciliar(worksheet, pendentes_totvs):
       continue
     solic = solic.split(".")[0]
     item = item.split(".")[0]
-
-    pedido = linha_pad[idx_pedido].strip()
-    if pedido and pedido.lower() != "nan":
-      continue  # tem Pedido - nao mexe
+    produto = str(linha_pad[idx_produto]).strip().split(".")[0]
 
     status_atual = linha_pad[idx_status].strip().upper()
+
+    pedido = linha_pad[idx_pedido].strip()
+    tem_pedido_na_propria_linha = bool(pedido) and pedido.lower() != "nan"
+    tem_pedido_via_pedidos = (solic, produto) in chaves_pedidos
+
+    if tem_pedido_na_propria_linha or tem_pedido_via_pedidos:
+      # Pedido Gerado e Atendida, sempre - se estava REVISAR, resolveu.
+      if status_atual == STATUS_REVISAR:
+        celulas.append(gspread.Cell(i, idx_status + 1, ""))
+        qtd_desmarcadas += 1
+      continue
+
     if status_atual in STATUS_MANUAIS_PROTEGIDOS:
       continue  # decisao do comprador - nao mexe
 
@@ -128,7 +166,8 @@ def main():
   worksheet = spreadsheet.worksheet(ABA_SOLICITACOES)
 
   pendentes_totvs = carregar_pendencias_totvs(args.arquivo)
-  qtd_marcadas, qtd_desmarcadas = reconciliar(worksheet, pendentes_totvs)
+  chaves_pedidos = carregar_chaves_pedidos(spreadsheet)
+  qtd_marcadas, qtd_desmarcadas = reconciliar(worksheet, pendentes_totvs, chaves_pedidos)
   print(
       f"{qtd_marcadas} solicitacao(oes) marcada(s) como REVISAR, "
       f"{qtd_desmarcadas} desmarcada(s) (voltaram a aparecer no TOTVS)."
