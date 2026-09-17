@@ -1342,27 +1342,16 @@ if df is not None:
               marker=dict(colors=[cor_atendido, cor_pendente]),
               hole=0.6,
               textinfo="value+percent",
-              textposition="inside",
-              insidetextorientation="radial",
-              textfont=dict(color="#ffffff", family=familia_fonte_grafico, size=11),
+              textposition="outside",
+              textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico, size=12),
               sort=False,
           )
       )
       fig_acumulado.update_layout(
-          title=dict(
-              text="ACUMULADO",
-              x=0.5,
-              xanchor="center",
-              font=dict(size=12, family=familia_fonte_grafico, color=cor_texto_grafico),
-          ),
-          showlegend=True,
-          legend=dict(
-              orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5,
-              font=dict(family=familia_fonte_grafico, size=10, color=cor_texto_grafico),
-          ),
+          showlegend=False,
           paper_bgcolor="rgba(0,0,0,0)",
           height=340,
-          margin=dict(l=10, r=10, t=50, b=40),
+          margin=dict(l=30, r=30, t=30, b=10),
           font=dict(color=cor_texto_grafico),
           annotations=[
               dict(
@@ -1378,6 +1367,10 @@ if df is not None:
           use_container_width=True,
           config={"displayModeBar": False},
           key="plotly_acumulado_mensal",
+      )
+      st.markdown(
+          f'<div style="text-align: center; font-size: 0.85rem; font-weight: {weight_resumo}; margin-top: -10px;">ACUMULADO</div>',
+          unsafe_allow_html=True,
       )
 
     with st.expander("Ver dados em formato de tabela"):
