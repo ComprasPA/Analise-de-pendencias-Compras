@@ -1257,34 +1257,48 @@ if df is not None:
     cor_atendido = "#22c55e" if is_tema_claro else "#388e3c"
     cor_pendente = "#f59e0b" if is_tema_claro else "#d97706"
 
+    # Barra extra "Acumulado" no fim do eixo X, soma de todos os meses
+    # mostrados - mesma info da linha "Acumulado" da tabela, só que também
+    # visível de cara no gráfico.
+    eixo_x_mensal = list(resumo_mensal["_mes_label"]) + ["Acumulado"]
+    atendidos_mensal = list(resumo_mensal["Atendidos"]) + [
+        int(resumo_mensal["Atendidos"].sum())
+    ]
+    pendentes_mensal = list(resumo_mensal["Pendentes"]) + [
+        int(resumo_mensal["Pendentes"].sum())
+    ]
+
     # Headroom no eixo Y pra rótulo "outside" (barra baixa) não cortar no
     # topo do gráfico - "auto" já escolhe dentro/fora conforme cabe, isso
     # só garante espaço quando escolhe fora.
-    maior_valor = max(
-        int(resumo_mensal["Atendidos"].max() or 0),
-        int(resumo_mensal["Pendentes"].max() or 0),
-    )
+    maior_valor = max(max(atendidos_mensal, default=0), max(pendentes_mensal, default=0))
     teto_eixo_y = maior_valor * 1.18 if maior_valor > 0 else 1
+
+    st.markdown(
+        '<div class="section-header">FECHAMENTO MÊS DE ATENDIMENTO DE'
+        " SOLICITAÇÃO</div>",
+        unsafe_allow_html=True,
+    )
 
     fig_mensal = go.Figure()
     fig_mensal.add_trace(
         go.Bar(
-            x=resumo_mensal["_mes_label"],
-            y=resumo_mensal["Atendidos"],
+            x=eixo_x_mensal,
+            y=atendidos_mensal,
             name="Atendidos",
             marker_color=cor_atendido,
-            text=resumo_mensal["Atendidos"],
+            text=atendidos_mensal,
             textposition="auto",
             textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico),
         )
     )
     fig_mensal.add_trace(
         go.Bar(
-            x=resumo_mensal["_mes_label"],
-            y=resumo_mensal["Pendentes"],
+            x=eixo_x_mensal,
+            y=pendentes_mensal,
             name="Pendentes",
             marker_color=cor_pendente,
-            text=resumo_mensal["Pendentes"],
+            text=pendentes_mensal,
             textposition="auto",
             textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico),
         )
