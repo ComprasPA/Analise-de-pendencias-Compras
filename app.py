@@ -1343,22 +1343,22 @@ if df is not None:
               hole=0.6,
               textinfo="value+percent",
               textposition="outside",
-              textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico, size=12),
+              textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico, size=10),
               sort=False,
           )
       )
       fig_acumulado.update_layout(
           showlegend=False,
           paper_bgcolor="rgba(0,0,0,0)",
-          height=340,
-          margin=dict(l=30, r=30, t=30, b=10),
+          height=300,
+          margin=dict(l=55, r=55, t=30, b=10),
           font=dict(color=cor_texto_grafico),
           annotations=[
               dict(
                   text=f"<b>{total_acumulado}</b><br>Total",
                   x=0.5, y=0.5,
                   showarrow=False,
-                  font=dict(size=16, family=familia_fonte_grafico, color=cor_texto_grafico),
+                  font=dict(size=14, family=familia_fonte_grafico, color=cor_texto_grafico),
               )
           ],
       )
