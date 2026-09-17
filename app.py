@@ -1234,21 +1234,37 @@ if df is not None:
     }
     df_mensal = df.dropna(subset=[COL_DT_EMISSAO]).copy()
     df_mensal["_periodo"] = df_mensal[COL_DT_EMISSAO].dt.to_period("M")
-    df_mensal["_mes_label"] = df_mensal["_periodo"].apply(
-        lambda p: f"{MESES_PT[p.month]}/{str(p.year)[-2:]}"
-    )
     df_mensal["_atendido"] = df_mensal["Status_Detalhado"] == "Atendidas"
 
+    # Ano inteiro (jan-dez do ano corrente) mesmo pros meses sem nenhuma
+    # Solicitação ainda - fica 0/0, mas o comparativo com o ano todo é o
+    # que foi pedido, não só os meses com dado.
+    periodos_ano = pd.period_range(
+        start=f"{hoje.year}-01", end=f"{hoje.year}-12", freq="M"
+    )
     resumo_mensal = (
-        df_mensal.groupby(["_periodo", "_mes_label"])["_atendido"]
+        df_mensal.groupby("_periodo")["_atendido"]
         .agg(Atendidos="sum", Total="count")
+        .reindex(periodos_ano, fill_value=0)
         .reset_index()
-        .sort_values("_periodo")
+        .rename(columns={"index": "_periodo"})
     )
     resumo_mensal["Pendentes"] = resumo_mensal["Total"] - resumo_mensal["Atendidos"]
+    resumo_mensal["_mes_label"] = resumo_mensal["_periodo"].apply(
+        lambda p: f"{MESES_PT[p.month]}/{str(p.year)[-2:]}"
+    )
 
     cor_atendido = "#22c55e" if is_tema_claro else "#388e3c"
     cor_pendente = "#f59e0b" if is_tema_claro else "#d97706"
+
+    # Headroom no eixo Y pra rótulo "outside" (barra baixa) não cortar no
+    # topo do gráfico - "auto" já escolhe dentro/fora conforme cabe, isso
+    # só garante espaço quando escolhe fora.
+    maior_valor = max(
+        int(resumo_mensal["Atendidos"].max() or 0),
+        int(resumo_mensal["Pendentes"].max() or 0),
+    )
+    teto_eixo_y = maior_valor * 1.18 if maior_valor > 0 else 1
 
     fig_mensal = go.Figure()
     fig_mensal.add_trace(
@@ -1258,7 +1274,7 @@ if df is not None:
             name="Atendidos",
             marker_color=cor_atendido,
             text=resumo_mensal["Atendidos"],
-            textposition="outside",
+            textposition="auto",
             textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico),
         )
     )
@@ -1269,7 +1285,7 @@ if df is not None:
             name="Pendentes",
             marker_color=cor_pendente,
             text=resumo_mensal["Pendentes"],
-            textposition="outside",
+            textposition="auto",
             textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico),
         )
     )
@@ -1292,6 +1308,7 @@ if df is not None:
         yaxis=dict(
             showgrid=True,
             gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+            range=[0, teto_eixo_y],
         ),
     )
     st.plotly_chart(
@@ -1305,6 +1322,13 @@ if df is not None:
       tabela_mensal = resumo_mensal[["_mes_label", "Atendidos", "Pendentes", "Total"]].rename(
           columns={"_mes_label": "Mês"}
       )
+      linha_acumulado = pd.DataFrame([{
+          "Mês": "Acumulado",
+          "Atendidos": int(tabela_mensal["Atendidos"].sum()),
+          "Pendentes": int(tabela_mensal["Pendentes"].sum()),
+          "Total": int(tabela_mensal["Total"].sum()),
+      }])
+      tabela_mensal = pd.concat([tabela_mensal, linha_acumulado], ignore_index=True)
       st.dataframe(tabela_mensal, use_container_width=True, hide_index=True)
 
   except Exception as e:
