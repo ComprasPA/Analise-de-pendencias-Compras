@@ -1310,6 +1310,7 @@ if df is not None:
           plot_bgcolor="rgba(0,0,0,0)",
           paper_bgcolor="rgba(0,0,0,0)",
           height=340,
+          margin=dict(l=50, r=10, t=50, b=40),
           font=dict(color=cor_texto_grafico),
           legend=dict(
               orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
@@ -1333,10 +1334,6 @@ if df is not None:
       )
 
     with col_acumulado_mensal:
-      st.markdown(
-          f'<div style="text-align: center; font-size: 0.85rem; font-weight: {weight_resumo}; margin-bottom: 2px;">ACUMULADO</div>',
-          unsafe_allow_html=True,
-      )
       fig_acumulado = go.Figure(
           go.Bar(
               x=["Atendidos", "Pendentes"],
@@ -1349,11 +1346,17 @@ if df is not None:
           )
       )
       fig_acumulado.update_layout(
+          title=dict(
+              text="ACUMULADO",
+              x=0.5,
+              xanchor="center",
+              font=dict(size=12, family=familia_fonte_grafico, color=cor_texto_grafico),
+          ),
           showlegend=False,
           plot_bgcolor="rgba(0,0,0,0)",
           paper_bgcolor="rgba(0,0,0,0)",
-          height=316,
-          margin=dict(l=5, r=5, t=10, b=5),
+          height=340,
+          margin=dict(l=50, r=10, t=50, b=40),
           font=dict(color=cor_texto_grafico),
           xaxis=dict(
               showgrid=False,
