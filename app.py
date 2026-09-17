@@ -1232,7 +1232,21 @@ if df is not None:
         1: "jan", 2: "fev", 3: "mar", 4: "abr", 5: "mai", 6: "jun",
         7: "jul", 8: "ago", 9: "set", 10: "out", 11: "nov", 12: "dez",
     }
+
+    col_filtro_cc_mensal, _ = st.columns([2, 3])
+    with col_filtro_cc_mensal:
+      opcoes_cc_mensal = sorted(df["CC_clean"].dropna().unique().tolist())
+      cc_selecionados_mensal = st.multiselect(
+          "Centro de Custo:",
+          options=opcoes_cc_mensal,
+          default=[],
+          placeholder="Todos os centros de custo",
+          key="filtro_cc_panorama_mensal",
+      )
+
     df_mensal = df.dropna(subset=[COL_DT_EMISSAO]).copy()
+    if cc_selecionados_mensal:
+      df_mensal = df_mensal[df_mensal["CC_clean"].isin(cc_selecionados_mensal)]
     df_mensal["_periodo"] = df_mensal[COL_DT_EMISSAO].dt.to_period("M")
     df_mensal["_atendido"] = df_mensal["Status_Detalhado"] == "Atendidas"
 
