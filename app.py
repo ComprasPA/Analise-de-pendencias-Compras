@@ -1342,7 +1342,9 @@ if df is not None:
               marker=dict(colors=[cor_atendido, cor_pendente]),
               hole=0.6,
               textinfo="value+percent",
-              textfont=dict(color="#ffffff", family=familia_fonte_grafico, size=12),
+              textposition="inside",
+              insidetextorientation="radial",
+              textfont=dict(color="#ffffff", family=familia_fonte_grafico, size=11),
               sort=False,
           )
       )
