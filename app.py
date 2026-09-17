@@ -1233,6 +1233,12 @@ if df is not None:
         7: "jul", 8: "ago", 9: "set", 10: "out", 11: "nov", 12: "dez",
     }
 
+    st.markdown(
+        '<div class="section-header">FECHAMENTO MÊS DE ATENDIMENTO DE'
+        " SOLICITAÇÃO</div>",
+        unsafe_allow_html=True,
+    )
+
     col_filtro_cc_mensal, _ = st.columns([2, 3])
     with col_filtro_cc_mensal:
       opcoes_cc_mensal = sorted(df["CC_clean"].dropna().unique().tolist())
@@ -1284,12 +1290,6 @@ if df is not None:
         int(resumo_mensal["Pendentes"].max() or 0),
     )
     teto_eixo_y = maior_valor * 1.18 if maior_valor > 0 else 1
-
-    st.markdown(
-        '<div class="section-header">FECHAMENTO MÊS DE ATENDIMENTO DE'
-        " SOLICITAÇÃO</div>",
-        unsafe_allow_html=True,
-    )
 
     col_grafico_mensal, col_acumulado_mensal = st.columns([4, 1])
 
