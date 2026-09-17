@@ -1236,11 +1236,11 @@ if df is not None:
     df_mensal["_periodo"] = df_mensal[COL_DT_EMISSAO].dt.to_period("M")
     df_mensal["_atendido"] = df_mensal["Status_Detalhado"] == "Atendidas"
 
-    # Ano inteiro (jan-dez do ano corrente) mesmo pros meses sem nenhuma
-    # Solicitação ainda - fica 0/0, mas o comparativo com o ano todo é o
-    # que foi pedido, não só os meses com dado.
+    # Jan do ano corrente até o mês atual - meses passados aparecem mesmo
+    # com 0 (pra não mascarar uma lacuna real na base), meses futuros nem
+    # entram na lista (não faz sentido mostrar um mês que ainda não chegou).
     periodos_ano = pd.period_range(
-        start=f"{hoje.year}-01", end=f"{hoje.year}-12", freq="M"
+        start=f"{hoje.year}-01", end=hoje.to_period("M"), freq="M"
     )
     resumo_mensal = (
         df_mensal.groupby("_periodo")["_atendido"]
