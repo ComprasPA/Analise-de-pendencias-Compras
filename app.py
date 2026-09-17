@@ -8,6 +8,15 @@ import requests
 import streamlit as st
 from google.oauth2.service_account import Credentials
 
+from logica_panorama import (
+    COL_DT_EMISSAO,
+    LIMITE_SLA_DIAS,
+    LIMITE_SLA_PADRAO,
+    MAPA_COMPRADORES,
+    STATUS_FORA_DO_BACKLOG,
+    processar_panorama,
+)
+
 st.set_page_config(layout="wide", page_title="Panorama Executivo de Suprimentos")
 
 FILE_ID = "1e7pQ512ge5XMnXxsRODEO7V48KgWo6FpKeITFqBSg1o"
@@ -176,18 +185,6 @@ st.markdown(
 cor_texto_grafico = "#ffffff" if not is_tema_claro else "#334155"
 familia_fonte_grafico = "Arial" if is_tema_claro else "Arial Black"
 
-MAPA_COMPRADORES = {
-    "1225": "Sílvio",
-    "1235": "Sílvio",
-    "1244": "Sílvio",
-    "1241": "Sílvio",
-    "1245": "Sílvio",
-    "1238": "Ednilson",
-    "1243": "Ednilson",
-    "1239": "Ednilson",
-    "1232": "Ednilson",
-}
-
 df = None
 df_criticidade = pd.DataFrame(columns=["Solicitacao", "Criticidade"])
 df_pedidos = pd.DataFrame(columns=["SOLICITAÇÃO", "PRODUTO"])
@@ -199,20 +196,10 @@ ABA_SOLICITACOES = "Solicitacoes"
 ABA_CRITICIDADE = "Criticidade_Solicitacoes"
 ABA_PEDIDOS = "Pedidos"
 
-# Status manuais lançados no Portal do Comprador (nunca mexidos por aqui,
-# só lidos) - uma Solicitação nesses estados não entra no backlog "em
-# aberto" deste painel. REVISAR é escrito pelo script
-# atualizar_pendencias_abertas.py quando a Solicitação não aparece mais no
-# browse "Pendências SC" do TOTVS nem tem Pedido - sinal de que fechou por
-# algum caminho que a gente ainda não sabe qual, e o comprador precisa
-# checar (rejeitou? virou contrato? etc).
-STATUS_FORA_DO_BACKLOG = {"REJEITADO", "CONTRATO", "REVISAR"}
-
-# Limite de SLA (dias) por criticidade - mesmo usado nos cartões "SLA Médio"
-# mais abaixo. Serve de base pra classificar a idade de um item ainda sem
-# Pedido em No Prazo/Atenção/Fora do Prazo (ver classificar_aging).
-LIMITE_SLA_DIAS = {"EMERGENCIAL": 3, "ROTINEIRA": 15}
-LIMITE_SLA_PADRAO = 15
+# Status manuais lançados no Portal do Comprador, e limites de SLA por
+# criticidade: ver constantes STATUS_FORA_DO_BACKLOG / LIMITE_SLA_DIAS /
+# LIMITE_SLA_PADRAO em logica_panorama.py (importadas acima) - documentação
+# do porquê está lá junto da lógica que as usa.
 
 
 @st.cache_data(ttl=86400)
@@ -241,172 +228,27 @@ if df is not None:
     df.columns = df.columns.astype(str).str.strip()
 
     col_sc = "SOLICITAÇÃO"
-    col_cc = "CENTRO DE CUSTO"
-    col_dt_emissao = "DATA EMISSAO"
-    col_pedido_num = "PEDIDO"
     col_criticidade = "CRITICIDADE"
 
     hoje = pd.to_datetime(data_base)
     hoje_str = hoje.strftime("%Y-%m-%d")
     ontem_str = (hoje - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 
-    df[col_dt_emissao] = pd.to_datetime(
-        df[col_dt_emissao], errors="coerce", dayfirst=True
-    )
-
-    df["CC_clean"] = (
-        pd.to_numeric(df[col_cc], errors="coerce")
-        .fillna(df[col_cc])
-        .astype(str)
-        .str.split(".")
-        .str[0]
-        .str.strip()
-    )
-    # Qualquer Centro de Custo que não esteja explicitamente mapeado pra
-    # Sílvio ou Ednilson acima é da Dayana.
-    df["Comprador_Resp"] = df["CC_clean"].map(MAPA_COMPRADORES).fillna("Dayana")
-
-    # Criticidade vem de uma aba separada ("Criticidade_Solicitacoes"),
-    # alimentada manualmente enquanto o TOTVS não carrega esse campo (troca
-    # de sistema em andamento - ver atualizar_criticidade.py). Faz join pelo
-    # número da Solicitação; o que ainda não tem correspondência fica "" -
-    # some naturalmente dos gauges de Rotineira/Emergencial até o próximo
-    # arquivo de Cotações preencher.
-    chave_solic = df[col_sc].astype(str).str.split(".").str[0].str.strip()
-    mapa_criticidade = (
-        df_criticidade.dropna(subset=["Solicitacao"])
-        .set_index("Solicitacao")["Criticidade"]
-        .to_dict()
-    )
-    df[col_criticidade] = chave_solic.map(mapa_criticidade).fillna("")
-
-    df["Days"] = (
-        (hoje - df[col_dt_emissao]).dt.days.clip(lower=0).fillna(0).astype(int)
-    )
-
-    # Pedido Gerado = Atendida, sempre - seja porque a própria célula
-    # PEDIDO da Solicitação já tem número, seja porque já existe uma linha
-    # correspondente na aba Pedidos (a "baixa" oficial). Os dois sinais se
-    # complementam: a célula pode estar preenchida antes da aba Pedidos
-    # notar, ou vice-versa.
-    s_ped = df[col_pedido_num].dropna().astype(str).str.strip()
-    pedido_na_propria_linha = (
-        s_ped.str.contains(r"\d", regex=True)
-        & (s_ped != "")
-        & (s_ped.str.upper() != "NAN")
-    ).reindex(df.index, fill_value=False)
-
-    chave_prod = df["PRODUTO"].astype(str).str.split(".").str[0].str.strip()
-    chave_solic_produto = chave_solic + "|" + chave_prod
-    if not df_pedidos.empty and "SOLICITAÇÃO" in df_pedidos.columns and "PRODUTO" in df_pedidos.columns:
-      chaves_pedidos = set(
-          df_pedidos["SOLICITAÇÃO"].astype(str).str.split(".").str[0].str.strip()
-          + "|"
-          + df_pedidos["PRODUTO"].astype(str).str.split(".").str[0].str.strip()
-      )
-    else:
-      chaves_pedidos = set()
-    pedido_na_aba_pedidos = chave_solic_produto.isin(chaves_pedidos)
-
-    df["Tem_Pedido"] = pedido_na_propria_linha | pedido_na_aba_pedidos
-
-    def classificar_aging(row):
-      limite = LIMITE_SLA_DIAS.get(
-          str(row[col_criticidade]).strip().upper(), LIMITE_SLA_PADRAO
-      )
-      dias = row["Days"]
-      if dias > limite:
-        return "Fora do Prazo"
-      elif dias >= limite * 0.7:
-        return "Atenção"
-      else:
-        return "No Prazo"
-
-    # Fora do backlog "em aberto": tem Pedido gerado, OU está num dos
-    # status manuais/de revisão que tiram a Solicitação da fila (ver
-    # STATUS_FORA_DO_BACKLOG). O resto é o que realmente ainda aguarda
-    # compra, e aí sim entra na classificação de idade.
-    status_fechado = (
-        df["STATUS"].astype(str).str.strip().str.upper().isin(STATUS_FORA_DO_BACKLOG)
-    )
-    df["Status_Detalhado"] = pd.Series("Atendidas", index=df.index).where(
-        df["Tem_Pedido"] | status_fechado, None
-    )
-    mask_sem_pedido = df["Status_Detalhado"].isna()
-    df.loc[mask_sem_pedido, "Status_Detalhado"] = df.loc[mask_sem_pedido].apply(
-        classificar_aging, axis=1
-    )
-
-    df_aberto = df[df["Status_Detalhado"] != "Atendidas"].copy()
-    df_aberto = df_aberto.dropna(subset=[col_sc])
-    df_aberto[col_sc] = (
-        df_aberto[col_sc].astype(str).str.split(".").str[0].str.zfill(6)
-    )
-
-    total_linhas_aberto = int(len(df_aberto))
-    unique_scs_aberto = df_aberto.drop_duplicates(subset=[col_sc]).copy()
-    total_sc_unicas_aberto = int(len(unique_scs_aberto))
-
-    # --- CORREÇÃO: Contagem de itens sem pedido restrita aos itens EM ABERTO ---
-    sem_pedido_total = int(
-        (~df_aberto["Tem_Pedido"].fillna(False).astype(bool)).sum()
-    )
-
-    # SLA médio só faz sentido pra itens ainda em aberto - "Days" mede idade
-    # desde a Solicitação, e uma vez com Pedido isso deixa de ser uma
-    # espera de compra (o acompanhamento daí em diante é no Portal Gestão
-    # de Compras, não aqui).
-    df_geral_crit = df[df["Status_Detalhado"] != "Atendidas"].copy()
-
-    if col_criticidade:
-      df_geral_crit = df_geral_crit[
-          df_geral_crit[col_criticidade]
-          .astype(str)
-          .str.upper()
-          .isin(["ROTINEIRA", "EMERGENCIAL"])
-      ]
-
-    mean_rot = (
-        df_geral_crit[
-            df_geral_crit[col_criticidade].astype(str).str.upper() == "ROTINEIRA"
-        ]["Days"].mean()
-        if col_criticidade and not df_geral_crit.empty
-        else float("nan")
-    )
-    mean_emg = (
-        df_geral_crit[
-            df_geral_crit[col_criticidade].astype(str).str.upper() == "EMERGENCIAL"
-        ]["Days"].mean()
-        if col_criticidade and not df_geral_crit.empty
-        else float("nan")
-    )
-
-    sla_geral_rot = int(round(mean_rot, 0)) if not pd.isna(mean_rot) else 0
-    sla_geral_emg = int(round(mean_emg, 0)) if not pd.isna(mean_emg) else 0
-
-    snapshot_atual = {
-        "total_scs_aberto": total_sc_unicas_aberto,
-        "total_linhas_aberto": total_linhas_aberto,
-        "sem_pedido_total": sem_pedido_total,
-        "compradores": {},
-    }
-
-    compradores_snapshot = ["Ednilson", "Dayana", "Sílvio"]
-    for comp in compradores_snapshot:
-      df_c = df[df["Comprador_Resp"] == comp]
-      df_c_aberto = df_c[df_c["Status_Detalhado"] != "Atendidas"]
-
-      sem_ped_comp = int(
-          (~df_c_aberto["Tem_Pedido"].fillna(False).astype(bool)).sum()
-      )
-      pedidos_emitidos_comp = int(
-          df_c["Tem_Pedido"].fillna(False).astype(bool).sum()
-      )
-      snapshot_atual["compradores"][comp] = {
-          "total": int(len(df_c)),
-          "sem_pedido": sem_ped_comp,
-          "comprados": pedidos_emitidos_comp,
-      }
+    # Toda a transformação/cálculo puro (normalização de CC, join de
+    # Criticidade, Days, Tem_Pedido, aging, backlog "em aberto", SLA médio
+    # e o snapshot do dia) vive em logica_panorama.processar_panorama - só
+    # DataFrame in, DataFrame/valores out, sem nenhuma chamada st.*, o que
+    # permite testar essa lógica sem rodar o Streamlit (ver tests/).
+    resultado = processar_panorama(df, df_criticidade, df_pedidos, hoje)
+    df = resultado["df"]
+    df_aberto = resultado["df_aberto"]
+    unique_scs_aberto = resultado["unique_scs_aberto"]
+    total_linhas_aberto = resultado["total_linhas_aberto"]
+    total_sc_unicas_aberto = resultado["total_sc_unicas_aberto"]
+    sem_pedido_total = resultado["sem_pedido_total"]
+    sla_geral_rot = resultado["sla_geral_rot"]
+    sla_geral_emg = resultado["sla_geral_emg"]
+    snapshot_atual = resultado["snapshot_atual"]
 
     # Salva o snapshot de hoje e lê o de ontem numa aba da própria planilha
     # (não em disco local - o Streamlit Cloud tem disco efêmero e qualquer
@@ -1377,6 +1219,93 @@ if df is not None:
             """,
           unsafe_allow_html=True,
       )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-header" style="background-color: #1e3a8a;'
+        " border: 1px solid #1e3a8a;'>📅 PANORAMA MENSAL - ITENS ATENDIDOS E"
+        " PENDENTES</div>",
+        unsafe_allow_html=True,
+    )
+
+    MESES_PT = {
+        1: "jan", 2: "fev", 3: "mar", 4: "abr", 5: "mai", 6: "jun",
+        7: "jul", 8: "ago", 9: "set", 10: "out", 11: "nov", 12: "dez",
+    }
+    df_mensal = df.dropna(subset=[COL_DT_EMISSAO]).copy()
+    df_mensal["_periodo"] = df_mensal[COL_DT_EMISSAO].dt.to_period("M")
+    df_mensal["_mes_label"] = df_mensal["_periodo"].apply(
+        lambda p: f"{MESES_PT[p.month]}/{str(p.year)[-2:]}"
+    )
+    df_mensal["_atendido"] = df_mensal["Status_Detalhado"] == "Atendidas"
+
+    resumo_mensal = (
+        df_mensal.groupby(["_periodo", "_mes_label"])["_atendido"]
+        .agg(Atendidos="sum", Total="count")
+        .reset_index()
+        .sort_values("_periodo")
+    )
+    resumo_mensal["Pendentes"] = resumo_mensal["Total"] - resumo_mensal["Atendidos"]
+
+    cor_atendido = "#22c55e" if is_tema_claro else "#388e3c"
+    cor_pendente = "#f59e0b" if is_tema_claro else "#d97706"
+
+    fig_mensal = go.Figure()
+    fig_mensal.add_trace(
+        go.Bar(
+            x=resumo_mensal["_mes_label"],
+            y=resumo_mensal["Atendidos"],
+            name="Atendidos",
+            marker_color=cor_atendido,
+            text=resumo_mensal["Atendidos"],
+            textposition="outside",
+            textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico),
+        )
+    )
+    fig_mensal.add_trace(
+        go.Bar(
+            x=resumo_mensal["_mes_label"],
+            y=resumo_mensal["Pendentes"],
+            name="Pendentes",
+            marker_color=cor_pendente,
+            text=resumo_mensal["Pendentes"],
+            textposition="outside",
+            textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico),
+        )
+    )
+    fig_mensal.update_layout(
+        barmode="group",
+        xaxis_title="",
+        yaxis_title="Qtd. Itens",
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        height=340,
+        font=dict(color=cor_texto_grafico),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+            font=dict(family=familia_fonte_grafico, size=10, color=cor_texto_grafico),
+        ),
+        xaxis=dict(
+            showgrid=False,
+            tickfont=dict(size=11, family=familia_fonte_grafico, color=cor_texto_grafico),
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+        ),
+    )
+    st.plotly_chart(
+        fig_mensal,
+        use_container_width=True,
+        config={"displayModeBar": False},
+        key="plotly_panorama_mensal",
+    )
+
+    with st.expander("Ver dados em formato de tabela"):
+      tabela_mensal = resumo_mensal[["_mes_label", "Atendidos", "Pendentes", "Total"]].rename(
+          columns={"_mes_label": "Mês"}
+      )
+      st.dataframe(tabela_mensal, use_container_width=True, hide_index=True)
 
   except Exception as e:
     st.error(f"⚠️ Erro analítico no processamento: {e}")
