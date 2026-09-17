@@ -1334,15 +1334,16 @@ if df is not None:
       )
 
     with col_acumulado_mensal:
+      total_acumulado = acumulado_atendidos + acumulado_pendentes
       fig_acumulado = go.Figure(
-          go.Bar(
-              x=["Atendidos", "Pendentes"],
-              y=[acumulado_atendidos, acumulado_pendentes],
-              marker_color=[cor_atendido, cor_pendente],
-              text=[acumulado_atendidos, acumulado_pendentes],
-              textposition="auto",
-              textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico),
-              width=[0.6, 0.6],
+          go.Pie(
+              labels=["Atendidos", "Pendentes"],
+              values=[acumulado_atendidos, acumulado_pendentes],
+              marker=dict(colors=[cor_atendido, cor_pendente]),
+              hole=0.6,
+              textinfo="value+percent",
+              textfont=dict(color="#ffffff", family=familia_fonte_grafico, size=12),
+              sort=False,
           )
       )
       fig_acumulado.update_layout(
@@ -1352,21 +1353,23 @@ if df is not None:
               xanchor="center",
               font=dict(size=12, family=familia_fonte_grafico, color=cor_texto_grafico),
           ),
-          showlegend=False,
-          plot_bgcolor="rgba(0,0,0,0)",
+          showlegend=True,
+          legend=dict(
+              orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5,
+              font=dict(family=familia_fonte_grafico, size=10, color=cor_texto_grafico),
+          ),
           paper_bgcolor="rgba(0,0,0,0)",
           height=340,
-          margin=dict(l=50, r=10, t=50, b=40),
+          margin=dict(l=10, r=10, t=50, b=40),
           font=dict(color=cor_texto_grafico),
-          xaxis=dict(
-              showgrid=False,
-              tickfont=dict(size=11, family=familia_fonte_grafico, color=cor_texto_grafico),
-          ),
-          yaxis=dict(
-              showgrid=True,
-              gridcolor="#e2e8f0" if is_tema_claro else "#333333",
-              range=[0, max(acumulado_atendidos, acumulado_pendentes, 1) * 1.18],
-          ),
+          annotations=[
+              dict(
+                  text=f"<b>{total_acumulado}</b><br>Total",
+                  x=0.5, y=0.5,
+                  showarrow=False,
+                  font=dict(size=16, family=familia_fonte_grafico, color=cor_texto_grafico),
+              )
+          ],
       )
       st.plotly_chart(
           fig_acumulado,
