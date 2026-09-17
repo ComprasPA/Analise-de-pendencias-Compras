@@ -1239,16 +1239,10 @@ if df is not None:
         unsafe_allow_html=True,
     )
 
-    col_filtro_cc_mensal, _ = st.columns([2, 3])
-    with col_filtro_cc_mensal:
-      opcoes_cc_mensal = sorted(df["CC_clean"].dropna().unique().tolist())
-      cc_selecionados_mensal = st.multiselect(
-          "Centro de Custo:",
-          options=opcoes_cc_mensal,
-          default=[],
-          placeholder="Todos os centros de custo",
-          key="filtro_cc_panorama_mensal",
-      )
+    # O widget em si só é desenhado mais abaixo (depois do gráfico, a
+    # pedido) - o valor já lido aqui vem do session_state da rodada
+    # anterior, que o Streamlit já atualiza antes do script re-executar.
+    cc_selecionados_mensal = st.session_state.get("filtro_cc_panorama_mensal", [])
 
     df_mensal = df.dropna(subset=[COL_DT_EMISSAO]).copy()
     if cc_selecionados_mensal:
@@ -1391,6 +1385,17 @@ if df is not None:
       st.markdown(
           f'<div style="text-align: center; font-size: 0.85rem; font-weight: {weight_resumo}; margin-top: -10px;">ACUMULADO</div>',
           unsafe_allow_html=True,
+      )
+
+    col_filtro_cc_mensal, _ = st.columns([1, 4])
+    with col_filtro_cc_mensal:
+      opcoes_cc_mensal = sorted(df["CC_clean"].dropna().unique().tolist())
+      st.multiselect(
+          "Centro de Custo:",
+          options=opcoes_cc_mensal,
+          default=[],
+          placeholder="Todos",
+          key="filtro_cc_panorama_mensal",
       )
 
     with st.expander("Ver dados em formato de tabela"):
