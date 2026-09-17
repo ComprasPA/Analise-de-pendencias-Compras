@@ -1257,21 +1257,18 @@ if df is not None:
     cor_atendido = "#22c55e" if is_tema_claro else "#388e3c"
     cor_pendente = "#f59e0b" if is_tema_claro else "#d97706"
 
-    # Barra extra "Acumulado" no fim do eixo X, soma de todos os meses
-    # mostrados - mesma info da linha "Acumulado" da tabela, só que também
-    # visível de cara no gráfico.
-    eixo_x_mensal = list(resumo_mensal["_mes_label"]) + ["Acumulado"]
-    atendidos_mensal = list(resumo_mensal["Atendidos"]) + [
-        int(resumo_mensal["Atendidos"].sum())
-    ]
-    pendentes_mensal = list(resumo_mensal["Pendentes"]) + [
-        int(resumo_mensal["Pendentes"].sum())
-    ]
+    acumulado_atendidos = int(resumo_mensal["Atendidos"].sum())
+    acumulado_pendentes = int(resumo_mensal["Pendentes"].sum())
 
     # Headroom no eixo Y pra rótulo "outside" (barra baixa) não cortar no
     # topo do gráfico - "auto" já escolhe dentro/fora conforme cabe, isso
-    # só garante espaço quando escolhe fora.
-    maior_valor = max(max(atendidos_mensal, default=0), max(pendentes_mensal, default=0))
+    # só garante espaço quando escolhe fora. Só considera os meses (o
+    # Acumulado vira um cartão à parte, não uma barra - senão ele sozinho
+    # estoura a escala e some com a variação entre os meses).
+    maior_valor = max(
+        int(resumo_mensal["Atendidos"].max() or 0),
+        int(resumo_mensal["Pendentes"].max() or 0),
+    )
     teto_eixo_y = maior_valor * 1.18 if maior_valor > 0 else 1
 
     st.markdown(
@@ -1280,57 +1277,75 @@ if df is not None:
         unsafe_allow_html=True,
     )
 
-    fig_mensal = go.Figure()
-    fig_mensal.add_trace(
-        go.Bar(
-            x=eixo_x_mensal,
-            y=atendidos_mensal,
-            name="Atendidos",
-            marker_color=cor_atendido,
-            text=atendidos_mensal,
-            textposition="auto",
-            textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico),
-        )
-    )
-    fig_mensal.add_trace(
-        go.Bar(
-            x=eixo_x_mensal,
-            y=pendentes_mensal,
-            name="Pendentes",
-            marker_color=cor_pendente,
-            text=pendentes_mensal,
-            textposition="auto",
-            textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico),
-        )
-    )
-    fig_mensal.update_layout(
-        barmode="group",
-        xaxis_title="",
-        yaxis_title="Qtd. Itens",
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        height=340,
-        font=dict(color=cor_texto_grafico),
-        legend=dict(
-            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-            font=dict(family=familia_fonte_grafico, size=10, color=cor_texto_grafico),
-        ),
-        xaxis=dict(
-            showgrid=False,
-            tickfont=dict(size=11, family=familia_fonte_grafico, color=cor_texto_grafico),
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor="#e2e8f0" if is_tema_claro else "#333333",
-            range=[0, teto_eixo_y],
-        ),
-    )
-    st.plotly_chart(
-        fig_mensal,
-        use_container_width=True,
-        config={"displayModeBar": False},
-        key="plotly_panorama_mensal",
-    )
+    col_grafico_mensal, col_acumulado_mensal = st.columns([4, 1])
+
+    with col_grafico_mensal:
+      fig_mensal = go.Figure()
+      fig_mensal.add_trace(
+          go.Bar(
+              x=resumo_mensal["_mes_label"],
+              y=resumo_mensal["Atendidos"],
+              name="Atendidos",
+              marker_color=cor_atendido,
+              text=resumo_mensal["Atendidos"],
+              textposition="auto",
+              textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico),
+          )
+      )
+      fig_mensal.add_trace(
+          go.Bar(
+              x=resumo_mensal["_mes_label"],
+              y=resumo_mensal["Pendentes"],
+              name="Pendentes",
+              marker_color=cor_pendente,
+              text=resumo_mensal["Pendentes"],
+              textposition="auto",
+              textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico),
+          )
+      )
+      fig_mensal.update_layout(
+          barmode="group",
+          xaxis_title="",
+          yaxis_title="Qtd. Itens",
+          plot_bgcolor="rgba(0,0,0,0)",
+          paper_bgcolor="rgba(0,0,0,0)",
+          height=340,
+          font=dict(color=cor_texto_grafico),
+          legend=dict(
+              orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+              font=dict(family=familia_fonte_grafico, size=10, color=cor_texto_grafico),
+          ),
+          xaxis=dict(
+              showgrid=False,
+              tickfont=dict(size=11, family=familia_fonte_grafico, color=cor_texto_grafico),
+          ),
+          yaxis=dict(
+              showgrid=True,
+              gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+              range=[0, teto_eixo_y],
+          ),
+      )
+      st.plotly_chart(
+          fig_mensal,
+          use_container_width=True,
+          config={"displayModeBar": False},
+          key="plotly_panorama_mensal",
+      )
+
+    with col_acumulado_mensal:
+      st.markdown(
+          f"""
+            <div style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; text-align: center; height: 340px; display: flex; flex-direction: column; justify-content: center;">
+                <div style="font-size: 0.85rem; font-weight: {weight_resumo}; margin-bottom: 6px;">ACUMULADO</div>
+                <div style="font-size: 1.7rem; font-weight: bold; color: {cor_atendido}; line-height: 1.1;">{acumulado_atendidos}</div>
+                <div style="font-size: 0.75rem; font-weight: {weight_th};">Atendidos</div>
+                <div style="border-top: 1px dashed #cbd5e1; margin: 10px 0;"></div>
+                <div style="font-size: 1.7rem; font-weight: bold; color: {cor_pendente}; line-height: 1.1;">{acumulado_pendentes}</div>
+                <div style="font-size: 0.75rem; font-weight: {weight_th};">Pendentes</div>
+            </div>
+            """,
+          unsafe_allow_html=True,
+      )
 
     with st.expander("Ver dados em formato de tabela"):
       tabela_mensal = resumo_mensal[["_mes_label", "Atendidos", "Pendentes", "Total"]].rename(
