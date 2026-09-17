@@ -1383,7 +1383,7 @@ if df is not None:
           key="plotly_acumulado_mensal",
       )
       st.markdown(
-          f'<div style="text-align: center; font-size: 0.85rem; font-weight: {weight_resumo}; margin-top: -10px;">ACUMULADO</div>',
+          f'<div style="text-align: center; font-size: 0.85rem; font-weight: {weight_resumo}; margin-top: -10px;">ACUMULADO ATUAL</div>',
           unsafe_allow_html=True,
       )
 
