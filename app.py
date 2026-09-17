@@ -1345,6 +1345,12 @@ if df is not None:
               textposition="outside",
               textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico, size=10),
               sort=False,
+              # Com só 2 fatias, os rótulos "outside" nascem nos pontos médios
+              # de cada fatia - que ficam quase opostos um do outro. Sem
+              # girar, esse ponto cai perto de cima/baixo do gráfico (bate no
+              # "Acumulado" embaixo). Rotacionar 90° joga os dois pontos pra
+              # esquerda/direita, fora da área de cima e de baixo.
+              rotation=90,
           )
       )
       fig_acumulado.update_layout(
