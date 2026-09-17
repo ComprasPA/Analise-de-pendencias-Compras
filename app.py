@@ -1334,17 +1334,42 @@ if df is not None:
 
     with col_acumulado_mensal:
       st.markdown(
-          f"""
-            <div style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; text-align: center; height: 340px; display: flex; flex-direction: column; justify-content: center;">
-                <div style="font-size: 0.85rem; font-weight: {weight_resumo}; margin-bottom: 6px;">ACUMULADO</div>
-                <div style="font-size: 1.7rem; font-weight: bold; color: {cor_atendido}; line-height: 1.1;">{acumulado_atendidos}</div>
-                <div style="font-size: 0.75rem; font-weight: {weight_th};">Atendidos</div>
-                <div style="border-top: 1px dashed #cbd5e1; margin: 10px 0;"></div>
-                <div style="font-size: 1.7rem; font-weight: bold; color: {cor_pendente}; line-height: 1.1;">{acumulado_pendentes}</div>
-                <div style="font-size: 0.75rem; font-weight: {weight_th};">Pendentes</div>
-            </div>
-            """,
+          f'<div style="text-align: center; font-size: 0.85rem; font-weight: {weight_resumo}; margin-bottom: 2px;">ACUMULADO</div>',
           unsafe_allow_html=True,
+      )
+      fig_acumulado = go.Figure(
+          go.Bar(
+              x=["Atendidos", "Pendentes"],
+              y=[acumulado_atendidos, acumulado_pendentes],
+              marker_color=[cor_atendido, cor_pendente],
+              text=[acumulado_atendidos, acumulado_pendentes],
+              textposition="auto",
+              textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico),
+              width=[0.6, 0.6],
+          )
+      )
+      fig_acumulado.update_layout(
+          showlegend=False,
+          plot_bgcolor="rgba(0,0,0,0)",
+          paper_bgcolor="rgba(0,0,0,0)",
+          height=316,
+          margin=dict(l=5, r=5, t=10, b=5),
+          font=dict(color=cor_texto_grafico),
+          xaxis=dict(
+              showgrid=False,
+              tickfont=dict(size=11, family=familia_fonte_grafico, color=cor_texto_grafico),
+          ),
+          yaxis=dict(
+              showgrid=True,
+              gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+              range=[0, max(acumulado_atendidos, acumulado_pendentes, 1) * 1.18],
+          ),
+      )
+      st.plotly_chart(
+          fig_acumulado,
+          use_container_width=True,
+          config={"displayModeBar": False},
+          key="plotly_acumulado_mensal",
       )
 
     with st.expander("Ver dados em formato de tabela"):
