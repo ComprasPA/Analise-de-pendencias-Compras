@@ -813,6 +813,26 @@ if df is not None:
     }
     ordem_status_aberto = ["Fora do Prazo", "Atenção", "No Prazo"]
 
+    @st.dialog("Solicitações em Aberto", width="large")
+    def mostrar_solicitacoes_abertas_dialog(df_lista, comp):
+      st.markdown(f"**{comp}** — {len(df_lista)} item(ns) em aberto")
+      colunas_disponiveis = [
+          c
+          for c in [col_sc, "CENTRO DE CUSTO", "PRODUTO", "DESCRICAO", col_criticidade, "Days", "Status_Detalhado"]
+          if c in df_lista.columns
+      ]
+      tabela_dialog = (
+          df_lista[colunas_disponiveis]
+          .rename(columns={
+              col_sc: "Solicitação",
+              col_criticidade: "Criticidade",
+              "Days": "Dias",
+              "Status_Detalhado": "Status",
+          })
+          .sort_values("Dias", ascending=False)
+      )
+      st.dataframe(tabela_dialog, use_container_width=True, hide_index=True, height=420)
+
     for comp, col_st in zip(compradores, colunas_st):
       with col_st:
         st.markdown(
@@ -1012,6 +1032,12 @@ if df is not None:
                 config={"displayModeBar": False},
                 key=f"bar_backlog_{comp}",
             )
+            if st.button(
+                "🔍 Ver Solicitações",
+                key=f"btn_ver_abertas_{comp}",
+                use_container_width=True,
+            ):
+              mostrar_solicitacoes_abertas_dialog(df_comp_aberto, comp)
           else:
             st.info(f"Fila limpa para {comp}.")
 
