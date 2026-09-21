@@ -814,8 +814,9 @@ if df is not None:
     ordem_status_aberto = ["Fora do Prazo", "Atenção", "No Prazo"]
 
     @st.dialog("Solicitações em Aberto", width="large")
-    def mostrar_solicitacoes_abertas_dialog(df_lista, comp):
-      st.markdown(f"**{comp}** — {len(df_lista)} item(ns) em aberto")
+    def mostrar_solicitacoes_abertas_dialog(df_lista, comp, status_clicado=None):
+      rotulo = f"{comp} — {status_clicado}" if status_clicado else comp
+      st.markdown(f"**{rotulo}** — {len(df_lista)} item(ns)")
       colunas_disponiveis = [
           c
           for c in [col_sc, "CENTRO DE CUSTO", "PRODUTO", "DESCRICAO", col_criticidade, "Days", "Status_Detalhado"]
@@ -1026,18 +1027,25 @@ if df is not None:
                     ),
                 ),
             )
-            st.plotly_chart(
+            evento_backlog = st.plotly_chart(
                 fig_comp_ind,
                 use_container_width=True,
                 config={"displayModeBar": False},
                 key=f"bar_backlog_{comp}",
+                on_select="rerun",
+                selection_mode="points",
             )
-            if st.button(
-                "🔍 Ver Solicitações",
-                key=f"btn_ver_abertas_{comp}",
-                use_container_width=True,
-            ):
-              mostrar_solicitacoes_abertas_dialog(df_comp_aberto, comp)
+            st.markdown(
+                f"<div style='text-align: center; font-size: 0.68rem; color: #64748b; margin-top: -8px;'>💡 Clique numa barra pra ver as solicitações</div>",
+                unsafe_allow_html=True,
+            )
+            pontos_clicados = (evento_backlog or {}).get("selection", {}).get("points", [])
+            if pontos_clicados:
+              status_clicado = pontos_clicados[0]["y"]
+              df_status_clicado = df_comp_aberto[
+                  df_comp_aberto["Status_Detalhado"] == status_clicado
+              ]
+              mostrar_solicitacoes_abertas_dialog(df_status_clicado, comp, status_clicado)
           else:
             st.info(f"Fila limpa para {comp}.")
 
