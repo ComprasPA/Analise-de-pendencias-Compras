@@ -114,11 +114,16 @@ def processar_panorama(df, df_criticidade, df_pedidos, hoje):
   # Número da Cotação já vem pronto na própria aba Solicitacoes (coluna
   # COTAÇÃO) - nem toda Solicitação teve cotação aberta, então fica ""
   # quando não há. Sem join nenhum, é só normalizar (mesma defesa contra
-  # ".0" de coluna numérica usada em CC_clean acima).
+  # ".0" de coluna numérica usada em CC_clean acima) e completar com zero
+  # à esquerda - o código de Cotação é sempre 6 dígitos, mas quando a
+  # célula vira número real no Excel/Sheets (em vez de texto) o zero à
+  # esquerda se perde (ex: "021227" vira "21227").
   if col_cotacao in df.columns:
-    df[col_cotacao] = (
+    cotacao = (
         df[col_cotacao].fillna("").astype(str).str.split(".").str[0].str.strip()
     )
+    eh_numerica = cotacao.str.match(r"^\d+$") & (cotacao != "")
+    df[col_cotacao] = cotacao.where(~eh_numerica, cotacao.str.zfill(6))
   else:
     df[col_cotacao] = ""
 

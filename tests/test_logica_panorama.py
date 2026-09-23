@@ -201,6 +201,28 @@ def test_processar_panorama_cotacao_vem_direto_da_propria_aba_solicitacoes():
   assert resultado["df"]["COTAÇÃO"].iloc[1] == ""
 
 
+def test_processar_panorama_cotacao_completa_com_zero_a_esquerda_ate_6_digitos():
+  # Cotação sempre tem 6 dígitos - quando a célula virou número real (em
+  # vez de texto) o zero à esquerda se perde e/ou sobra ".0" de float.
+  df = pd.DataFrame(
+      {
+          "SOLICITAÇÃO": ["200004", "200005", "200006"],
+          "CENTRO DE CUSTO": ["1225", "1225", "1225"],
+          "DATA EMISSAO": ["01/09/2026", "01/09/2026", "01/09/2026"],
+          "COTAÇÃO": ["21227.0", "787", "019895"],
+          "PEDIDO": ["", "", ""],
+          "STATUS": ["", "", ""],
+          "PRODUTO": ["X4", "X5", "X6"],
+      }
+  )
+  df_criticidade_vazio = pd.DataFrame(columns=["Solicitacao", "Criticidade"])
+  df_pedidos_vazio = pd.DataFrame(columns=["SOLICITAÇÃO", "PRODUTO"])
+
+  resultado = processar_panorama(df, df_criticidade_vazio, df_pedidos_vazio, HOJE)
+
+  assert list(resultado["df"]["COTAÇÃO"]) == ["021227", "000787", "019895"]
+
+
 def test_processar_panorama_sem_coluna_cotacao_na_planilha():
   # Planilha antiga/sem essa coluna ainda - não deve quebrar, só fica "".
   df = pd.DataFrame(
