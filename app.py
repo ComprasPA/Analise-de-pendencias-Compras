@@ -3,6 +3,7 @@ import io
 import json
 import gspread
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
 import requests
 import streamlit as st
@@ -980,31 +981,30 @@ if df is not None:
             )
             comp_stats = comp_stats.sort_values("Status_Detalhado")
 
-            cores = [
-                color_status_map.get(s, "#718096")
-                for s in comp_stats["Status_Detalhado"]
-            ]
             comp_stats["Texto_Label"] = comp_stats.apply(
                 lambda row: f"{int(row['Quantidade'])} ({row['Percentual']}%)",
                 axis=1,
             )
 
-            fig_comp_ind = go.Figure(
-                go.Bar(
-                    x=comp_stats["Percentual"],
-                    y=comp_stats["Status_Detalhado"],
-                    orientation="h",
-                    text=comp_stats["Texto_Label"],
-                    textposition="outside",
-                    textfont=dict(
-                        size=10,
-                        color=cor_texto_grafico,
-                        family=familia_fonte_grafico,
-                    ),
-                    marker_color=cores,
-                )
+            fig_comp_ind = px.bar(
+                comp_stats,
+                x="Percentual",
+                y="Status_Detalhado",
+                orientation="h",
+                text="Texto_Label",
+                color="Status_Detalhado",
+                color_discrete_map=color_status_map,
+            )
+            fig_comp_ind.update_traces(
+                textposition="outside",
+                textfont=dict(
+                    size=10,
+                    color=cor_texto_grafico,
+                    family=familia_fonte_grafico,
+                ),
             )
             fig_comp_ind.update_layout(
+                showlegend=False,
                 xaxis_title="% Backlog",
                 yaxis_title="",
                 plot_bgcolor="rgba(0,0,0,0)",
@@ -1020,6 +1020,8 @@ if df is not None:
                 ),
                 yaxis=dict(
                     type="category",
+                    categoryorder="array",
+                    categoryarray=ordem_status_aberto,
                     tickfont=dict(
                         family=familia_fonte_grafico,
                         size=9,
@@ -1027,7 +1029,7 @@ if df is not None:
                     ),
                 ),
             )
-            evento_backlog = st.plotly_chart(
+            evento_clique = st.plotly_chart(
                 fig_comp_ind,
                 use_container_width=True,
                 config={"displayModeBar": False},
@@ -1036,16 +1038,22 @@ if df is not None:
                 selection_mode="points",
             )
             st.markdown(
-                f"<div style='text-align: center; font-size: 0.68rem; color: #64748b; margin-top: -8px;'>💡 Clique numa barra pra ver as solicitações</div>",
+                "<div style='text-align: center; font-size: 0.68rem; color: #64748b; margin-top: -8px;'>💡 Clique numa barra pra ver as solicitações</div>",
                 unsafe_allow_html=True,
             )
-            pontos_clicados = (evento_backlog or {}).get("selection", {}).get("points", [])
-            if pontos_clicados:
-              status_clicado = pontos_clicados[0]["y"]
-              df_status_clicado = df_comp_aberto[
-                  df_comp_aberto["Status_Detalhado"] == status_clicado
-              ]
-              mostrar_solicitacoes_abertas_dialog(df_status_clicado, comp, status_clicado)
+
+            pontos_selecionados = (
+                evento_clique.get("selection", {}).get("points", [])
+                if evento_clique
+                else []
+            )
+            if pontos_selecionados:
+                status_clicado = pontos_selecionados[0].get("y")
+                if status_clicado in comp_stats["Status_Detalhado"].values:
+                  df_status_clicado = df_comp_aberto[
+                      df_comp_aberto["Status_Detalhado"] == status_clicado
+                  ]
+                  mostrar_solicitacoes_abertas_dialog(df_status_clicado, comp, status_clicado)
           else:
             st.info(f"Fila limpa para {comp}.")
 
