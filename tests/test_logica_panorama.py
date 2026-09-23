@@ -177,6 +177,50 @@ def test_processar_panorama_sem_criticidade_cadastrada():
   assert resultado["sla_geral_emg"] == 0
 
 
+def test_processar_panorama_cotacao_vem_direto_da_propria_aba_solicitacoes():
+  # COTAÇÃO já é uma coluna pronta na aba Solicitacoes (não vem de join
+  # com nenhuma outra aba) - nem toda Solicitação teve cotação aberta,
+  # então fica "" quando a célula está vazia.
+  df = pd.DataFrame(
+      {
+          "SOLICITAÇÃO": ["200001", "200002"],
+          "CENTRO DE CUSTO": ["1225", "1225"],
+          "DATA EMISSAO": ["01/09/2026", "01/09/2026"],
+          "COTAÇÃO": ["019895", ""],
+          "PEDIDO": ["", ""],
+          "STATUS": ["", ""],
+          "PRODUTO": ["X1", "X2"],
+      }
+  )
+  df_criticidade_vazio = pd.DataFrame(columns=["Solicitacao", "Criticidade"])
+  df_pedidos_vazio = pd.DataFrame(columns=["SOLICITAÇÃO", "PRODUTO"])
+
+  resultado = processar_panorama(df, df_criticidade_vazio, df_pedidos_vazio, HOJE)
+
+  assert resultado["df"]["COTAÇÃO"].iloc[0] == "019895"
+  assert resultado["df"]["COTAÇÃO"].iloc[1] == ""
+
+
+def test_processar_panorama_sem_coluna_cotacao_na_planilha():
+  # Planilha antiga/sem essa coluna ainda - não deve quebrar, só fica "".
+  df = pd.DataFrame(
+      {
+          "SOLICITAÇÃO": ["200003"],
+          "CENTRO DE CUSTO": ["1225"],
+          "DATA EMISSAO": ["01/09/2026"],
+          "PEDIDO": [""],
+          "STATUS": [""],
+          "PRODUTO": ["X3"],
+      }
+  )
+  df_criticidade_vazio = pd.DataFrame(columns=["Solicitacao", "Criticidade"])
+  df_pedidos_vazio = pd.DataFrame(columns=["SOLICITAÇÃO", "PRODUTO"])
+
+  resultado = processar_panorama(df, df_criticidade_vazio, df_pedidos_vazio, HOJE)
+
+  assert resultado["df"]["COTAÇÃO"].iloc[0] == ""
+
+
 def test_processar_panorama_pedido_nan_e_none_conta_como_sem_pedido():
   df = pd.DataFrame(
       {

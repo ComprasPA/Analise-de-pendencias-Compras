@@ -21,7 +21,7 @@ COL_CC = "CENTRO DE CUSTO"
 COL_DT_EMISSAO = "DATA EMISSAO"
 COL_PEDIDO_NUM = "PEDIDO"
 COL_CRITICIDADE = "CRITICIDADE"
-COL_COTACAO = "COTACAO"
+COL_COTACAO = "COTAÇÃO"
 
 MAPA_COMPRADORES = {
     "1225": "Sílvio",
@@ -111,15 +111,14 @@ def processar_panorama(df, df_criticidade, df_pedidos, hoje):
   )
   df[col_criticidade] = chave_solic.map(mapa_criticidade).fillna("")
 
-  # Número da Cotação (TOTVS) - mesma origem/join da Criticidade acima;
-  # nem toda Solicitação teve cotação aberta, então fica "" quando não há.
-  if "Cotacao" in df_criticidade.columns:
-    mapa_cotacao = (
-        df_criticidade.dropna(subset=["Solicitacao"])
-        .set_index("Solicitacao")["Cotacao"]
-        .to_dict()
+  # Número da Cotação já vem pronto na própria aba Solicitacoes (coluna
+  # COTAÇÃO) - nem toda Solicitação teve cotação aberta, então fica ""
+  # quando não há. Sem join nenhum, é só normalizar (mesma defesa contra
+  # ".0" de coluna numérica usada em CC_clean acima).
+  if col_cotacao in df.columns:
+    df[col_cotacao] = (
+        df[col_cotacao].fillna("").astype(str).str.split(".").str[0].str.strip()
     )
-    df[col_cotacao] = chave_solic.map(mapa_cotacao).fillna("")
   else:
     df[col_cotacao] = ""
 
