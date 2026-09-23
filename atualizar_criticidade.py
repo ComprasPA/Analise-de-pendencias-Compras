@@ -20,7 +20,7 @@ from google.oauth2.service_account import Credentials
 
 FILE_ID = "1e7pQ512ge5XMnXxsRODEO7V48KgWo6FpKeITFqBSg1o"
 ABA_CRITICIDADE = "Criticidade_Solicitacoes"
-CABECALHO = ["Solicitacao", "Criticidade", "Centro de Custo", "Descricao", "Status", "Comprador"]
+CABECALHO = ["Solicitacao", "Criticidade", "Centro de Custo", "Descricao", "Status", "Comprador", "Cotacao"]
 
 
 def obter_client(secrets_path):
@@ -51,6 +51,7 @@ def carregar_arquivo(caminho):
   col_desc = resolver_coluna(df.columns, "Descri", obrigatoria=False)
   col_status = resolver_coluna(df.columns, "Status", obrigatoria=False)
   col_comprador = resolver_coluna(df.columns, "Comprador", obrigatoria=False)
+  col_cotacao = resolver_coluna(df.columns, "Cota", obrigatoria=False)
 
   df = df.dropna(subset=[col_num]).copy()
   df["Solicitacao"] = df[col_num].apply(lambda v: str(int(v)))
@@ -59,6 +60,14 @@ def carregar_arquivo(caminho):
   def col_ou_vazio(col):
     return df[col].fillna("").astype(str).str.strip() if col else ""
 
+  def col_numerica_ou_vazio(col):
+    # Excel guarda numero de Cotacao como valor numerico real; a coluna vira
+    # float quando misturada com celulas vazias (NaN), e astype(str) direto
+    # gera "5001.0" em vez de "5001" - mesma armadilha ja vista na migracao
+    # da coluna PEDIDO (corrigir_migracao_jan_mar_2026.py). Corta o ".0" via
+    # split, igual ao tratamento de CC_clean em logica_panorama.py.
+    return col_ou_vazio(col).str.split(".").str[0] if col else ""
+
   saida = pd.DataFrame({
       "Solicitacao": df["Solicitacao"],
       "Criticidade": col_ou_vazio(col_crit),
@@ -66,6 +75,7 @@ def carregar_arquivo(caminho):
       "Descricao": col_ou_vazio(col_desc),
       "Status": col_ou_vazio(col_status),
       "Comprador": col_ou_vazio(col_comprador),
+      "Cotacao": col_numerica_ou_vazio(col_cotacao),
   })
   return saida
 
@@ -86,6 +96,11 @@ def upsert(worksheet, novos_df):
     valores_existentes = [CABECALHO]
 
   cabecalho = valores_existentes[0]
+  if "Cotacao" not in cabecalho:
+    # Planilha criada antes da coluna "Cotacao" existir - so estende o
+    # cabecalho (no fim, pra nao mexer no indice das colunas existentes).
+    cabecalho = cabecalho + ["Cotacao"]
+    worksheet.update([cabecalho], "A1")
   idx_solic = cabecalho.index("Solicitacao")
   indice_linha = {
       linha[idx_solic]: i + 2

@@ -21,6 +21,7 @@ COL_CC = "CENTRO DE CUSTO"
 COL_DT_EMISSAO = "DATA EMISSAO"
 COL_PEDIDO_NUM = "PEDIDO"
 COL_CRITICIDADE = "CRITICIDADE"
+COL_COTACAO = "COTACAO"
 
 MAPA_COMPRADORES = {
     "1225": "Sílvio",
@@ -78,6 +79,7 @@ def processar_panorama(df, df_criticidade, df_pedidos, hoje):
   col_dt_emissao = COL_DT_EMISSAO
   col_pedido_num = COL_PEDIDO_NUM
   col_criticidade = COL_CRITICIDADE
+  col_cotacao = COL_COTACAO
 
   df[col_dt_emissao] = pd.to_datetime(
       df[col_dt_emissao], errors="coerce", dayfirst=True
@@ -108,6 +110,18 @@ def processar_panorama(df, df_criticidade, df_pedidos, hoje):
       .to_dict()
   )
   df[col_criticidade] = chave_solic.map(mapa_criticidade).fillna("")
+
+  # Número da Cotação (TOTVS) - mesma origem/join da Criticidade acima;
+  # nem toda Solicitação teve cotação aberta, então fica "" quando não há.
+  if "Cotacao" in df_criticidade.columns:
+    mapa_cotacao = (
+        df_criticidade.dropna(subset=["Solicitacao"])
+        .set_index("Solicitacao")["Cotacao"]
+        .to_dict()
+    )
+    df[col_cotacao] = chave_solic.map(mapa_cotacao).fillna("")
+  else:
+    df[col_cotacao] = ""
 
   df["Days"] = (
       (hoje - df[col_dt_emissao]).dt.days.clip(lower=0).fillna(0).astype(int)

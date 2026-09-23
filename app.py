@@ -10,6 +10,7 @@ import streamlit as st
 from google.oauth2.service_account import Credentials
 
 from logica_panorama import (
+    COL_COTACAO,
     COL_DT_EMISSAO,
     LIMITE_SLA_DIAS,
     LIMITE_SLA_PADRAO,
@@ -820,16 +821,16 @@ if df is not None:
       st.markdown(f"**{rotulo}** — {len(df_lista)} item(ns)")
       colunas_disponiveis = [
           c
-          for c in [col_sc, "CENTRO DE CUSTO", "PRODUTO", "DESCRICAO", col_criticidade, "Days", "Status_Detalhado"]
+          for c in [col_sc, COL_COTACAO, "CENTRO DE CUSTO", "PRODUTO", "DESCRICAO", col_criticidade, "Days"]
           if c in df_lista.columns
       ]
       tabela_dialog = (
           df_lista[colunas_disponiveis]
           .rename(columns={
               col_sc: "Solicitação",
+              COL_COTACAO: "Cotação",
               col_criticidade: "Criticidade",
               "Days": "Dias",
-              "Status_Detalhado": "Status",
           })
           .sort_values("Dias", ascending=False)
       )
