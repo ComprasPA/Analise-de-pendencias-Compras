@@ -815,26 +815,36 @@ if df is not None:
     }
     ordem_status_aberto = ["Fora do Prazo", "Atenção", "No Prazo"]
 
-    @st.dialog("Solicitações em Aberto", width="large")
-    def mostrar_solicitacoes_abertas_dialog(df_lista, comp, status_clicado=None):
-      rotulo = f"{comp} — {status_clicado}" if status_clicado else comp
-      st.markdown(f"**{rotulo}** — {len(df_lista)} item(ns)")
-      colunas_disponiveis = [
-          c
-          for c in [col_sc, COL_COTACAO, "CENTRO DE CUSTO", "PRODUTO", "DESCRICAO", col_criticidade, "Days"]
-          if c in df_lista.columns
-      ]
-      tabela_dialog = (
-          df_lista[colunas_disponiveis]
-          .rename(columns={
-              col_sc: "Solicitação",
-              COL_COTACAO: "Cotação",
-              col_criticidade: "Criticidade",
-              "Days": "Dias",
-          })
-          .sort_values("Dias", ascending=False)
-      )
-      st.dataframe(tabela_dialog, use_container_width=True, hide_index=True, height=420)
+    def criar_dialog_solicitacoes_abertas(comp):
+      # st.dialog identifica o elemento internamente pelo título + local de
+      # definição - se a função fosse definida uma vez só (fora do loop) e
+      # chamada pra 3 compradores diferentes, uma seleção "grudada" de um
+      # gráfico anterior (o Plotly não limpa selection sozinho) podia
+      # coincidir com a de outro no mesmo rerun e colidir ("multiple dialog
+      # elements with the same auto-generated ID"). Título com o nome do
+      # comprador dá um ID único por comprador.
+      @st.dialog(f"Solicitações em Aberto — {comp}", width="large")
+      def mostrar_solicitacoes_abertas_dialog(df_lista, status_clicado=None):
+        rotulo = f"{comp} — {status_clicado}" if status_clicado else comp
+        st.markdown(f"**{rotulo}** — {len(df_lista)} item(ns)")
+        colunas_disponiveis = [
+            c
+            for c in [col_sc, COL_COTACAO, "CENTRO DE CUSTO", "PRODUTO", "DESCRICAO", col_criticidade, "Days"]
+            if c in df_lista.columns
+        ]
+        tabela_dialog = (
+            df_lista[colunas_disponiveis]
+            .rename(columns={
+                col_sc: "Solicitação",
+                COL_COTACAO: "Cotação",
+                col_criticidade: "Criticidade",
+                "Days": "Dias",
+            })
+            .sort_values("Dias", ascending=False)
+        )
+        st.dataframe(tabela_dialog, use_container_width=True, hide_index=True, height=420)
+
+      return mostrar_solicitacoes_abertas_dialog
 
     for comp, col_st in zip(compradores, colunas_st):
       with col_st:
@@ -1054,7 +1064,7 @@ if df is not None:
                   df_status_clicado = df_comp_aberto[
                       df_comp_aberto["Status_Detalhado"] == status_clicado
                   ]
-                  mostrar_solicitacoes_abertas_dialog(df_status_clicado, comp, status_clicado)
+                  criar_dialog_solicitacoes_abertas(comp)(df_status_clicado, status_clicado)
           else:
             st.info(f"Fila limpa para {comp}.")
 
