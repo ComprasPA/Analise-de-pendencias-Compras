@@ -45,8 +45,8 @@ def _df_solicitacoes():
   # pd.to_datetime(..., dayfirst=True) mais abaixo, no teste dedicado).
   return pd.DataFrame(
       {
-          "SOLICITAÇÃO": ["100001", "100002", "100003", "100004", "100005", "100005"],
-          "CENTRO DE CUSTO": ["1225", "9999", "1238", "1232", "1225", "1225"],
+          "SOLICITAÇÃO": ["100001", "100002", "100003", "100004", "100005", "100005", "100006", "100007", "100008"],
+          "CENTRO DE CUSTO": ["1225", "9999", "1238", "1232", "1225", "1225", "1225", "1225", "1225"],
           "DATA EMISSAO": [
               "01/08/2026",  # A: 43 dias atrás
               "10/09/2026",  # B: 3 dias atrás
@@ -54,10 +54,13 @@ def _df_solicitacoes():
               "01/09/2026",  # D: 12 dias atrás
               "20/08/2026",  # E: 24 dias atrás
               "20/08/2026",  # F: 24 dias atrás (mesma SC de E, item diferente)
+              "01/08/2026",  # G: 43 dias atrás - seria "Fora do Prazo" se o fix não funcionasse
+              "01/08/2026",  # H: idem
+              "01/08/2026",  # I: idem
           ],
-          "PEDIDO": ["", "", "4500123", "", "", ""],
-          "STATUS": ["", "", "", "REJEITADO", "", ""],
-          "PRODUTO": ["P1", "P2", "P3", "P4", "P5", "P5b"],
+          "PEDIDO": ["", "", "4500123", "", "", "", "", "", ""],
+          "STATUS": ["", "", "", "REJEITADO", "", "", "ATENDIDA", "REJEITADA", "PEDIDO GERADO"],
+          "PRODUTO": ["P1", "P2", "P3", "P4", "P5", "P5b", "P6", "P7", "P8"],
       }
   )
 
@@ -110,6 +113,19 @@ def test_status_fechado_manual_e_atendidas_por_pedido(resultado):
   assert status["100002P2"] == "Atendidas"  # pedido via aba Pedidos
 
 
+def test_status_legenda_totvs_fecha_mesmo_sem_pedido(resultado):
+  # ATENDIDA/REJEITADA/PEDIDO GERADO vem do import de Solicitações via
+  # Legenda do Totvs (repo consulta-parente-andrade) - fecham a Solicitação
+  # mesmo com a célula PEDIDO desta linha vazia (caso real, 2026-09-30: SC
+  # 140492/140496, Totvs confirma atendida mas o Num. Pedido não voltou
+  # nessa linha do relatório de SC).
+  df = resultado["df"]
+  status = dict(zip(df["SOLICITAÇÃO"] + df["PRODUTO"], df["Status_Detalhado"]))
+  assert status["100006P6"] == "Atendidas"  # STATUS=ATENDIDA, sem Pedido
+  assert status["100007P7"] == "Atendidas"  # STATUS=REJEITADA, sem Pedido
+  assert status["100008P8"] == "Atendidas"  # STATUS=PEDIDO GERADO, sem Pedido
+
+
 def test_aging_classifica_itens_em_aberto_por_criticidade(resultado):
   df = resultado["df"]
   status = dict(zip(df["SOLICITAÇÃO"] + df["PRODUTO"], df["Status_Detalhado"]))
@@ -141,7 +157,10 @@ def test_snapshot_por_comprador(resultado):
   assert snap["total_linhas_aberto"] == 3
   assert snap["sem_pedido_total"] == 3
 
-  assert snap["compradores"]["Sílvio"] == {"total": 3, "sem_pedido": 3, "comprados": 0}
+  # Sílvio (CC 1225) tem 3 linhas em aberto (100001, 100005x2) + 3 linhas
+  # fechadas via Legenda do Totvs (100006/100007/100008, ver
+  # test_status_legenda_totvs_fecha_mesmo_sem_pedido) = 6 no total.
+  assert snap["compradores"]["Sílvio"] == {"total": 6, "sem_pedido": 3, "comprados": 0}
   assert snap["compradores"]["Ednilson"] == {"total": 2, "sem_pedido": 0, "comprados": 1}
   assert snap["compradores"]["Dayana"] == {"total": 1, "sem_pedido": 0, "comprados": 1}
 

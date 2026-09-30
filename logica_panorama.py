@@ -42,7 +42,18 @@ MAPA_COMPRADORES = {
 # browse "Pendências SC" do TOTVS nem tem Pedido - sinal de que fechou por
 # algum caminho que a gente ainda não sabe qual, e o comprador precisa
 # checar (rejeitou? virou contrato? etc).
-STATUS_FORA_DO_BACKLOG = {"REJEITADO", "CONTRATO", "REVISAR"}
+#
+# ATENDIDA/REJEITADA/PEDIDO GERADO são gravados pelo import de Solicitações
+# do Portal Gestão de Compras (repo consulta-parente-andrade), a partir da
+# coluna Legenda do próprio relatório do Totvs - também fecham a Solicitação
+# mesmo sem a célula PEDIDO desta linha estar preenchida (visto ao vivo,
+# 2026-09-30: SC 140492/140496, Totvs confirma "totalmente atendida" mas o
+# Num. Pedido não veio de volta em algumas linhas do relatório de SC, então
+# Tem_Pedido sozinho não bastava e o item ficava "Fora do Prazo" pra sempre).
+STATUS_FORA_DO_BACKLOG = {
+    "REJEITADO", "CONTRATO", "REVISAR",
+    "ATENDIDA", "REJEITADA", "PEDIDO GERADO",
+}
 
 # Limite de SLA (dias) por criticidade - mesmo usado nos cartões "SLA Médio".
 # Serve de base pra classificar a idade de um item ainda sem Pedido em
