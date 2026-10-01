@@ -204,7 +204,7 @@ ABA_PEDIDOS = "Pedidos"
 # do porquê está lá junto da lógica que as usa.
 
 
-@st.cache_data(ttl=86400)
+@st.cache_data(ttl=300)
 def carregar_dados_gsheets(url):
   response = requests.get(url)
   response.raise_for_status()
