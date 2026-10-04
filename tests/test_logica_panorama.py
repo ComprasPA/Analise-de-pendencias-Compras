@@ -350,3 +350,48 @@ def test_dayfirst_com_string_iso_e_ambiguo_comportamento_conhecido_nao_e_bug_aqu
   # "2026-08-01 00:00:00" e o parser, com dayfirst=True, prioriza dia
   # antes de mês quando a string tem esse formato ambíguo.
   assert reparseado != valor_como_timestamp
+
+
+# --- fallback pra CRITICIDADE da própria aba Solicitacoes ---------------------
+
+def test_criticidade_cai_pra_coluna_propria_quando_aba_separada_nao_tem():
+  # Caso real, 2026-10-04: SC 141398 e outras 79 tinham criticidade na aba
+  # Solicitacoes mas não em Criticidade_Solicitacoes - apareciam em branco.
+  df = pd.DataFrame(
+      {
+          "SOLICITAÇÃO": ["300001", "300002", "300003"],
+          "CENTRO DE CUSTO": ["1225", "1225", "1225"],
+          "DATA EMISSAO": ["01/09/2026"] * 3,
+          "PEDIDO": ["", "", ""],
+          "STATUS": ["", "", ""],
+          "PRODUTO": ["Y1", "Y2", "Y3"],
+          "CRITICIDADE": ["EMERGENCIAL", "NÃO CLASSIFICADO", ""],
+      }
+  )
+  # só a 300003 está na aba separada; a 300001/300002 só têm a coluna própria
+  df_crit = pd.DataFrame({"Solicitacao": ["300003"], "Criticidade": ["ROTINEIRA"]})
+  df_ped = pd.DataFrame(columns=["SOLICITAÇÃO", "PRODUTO"])
+
+  crit = processar_panorama(df, df_crit, df_ped, HOJE)["df"]
+  mapa = dict(zip(crit["SOLICITAÇÃO"], crit["CRITICIDADE"]))
+  assert mapa["300001"] == "EMERGENCIAL"
+  assert mapa["300002"] == "NÃO CLASSIFICADO"
+  assert mapa["300003"] == "ROTINEIRA"   # aba separada vale quando tem valor
+
+
+def test_aba_separada_prevalece_quando_as_duas_tem_valor():
+  df = pd.DataFrame(
+      {
+          "SOLICITAÇÃO": ["300010"],
+          "CENTRO DE CUSTO": ["1225"],
+          "DATA EMISSAO": ["01/09/2026"],
+          "PEDIDO": [""],
+          "STATUS": [""],
+          "PRODUTO": ["Y9"],
+          "CRITICIDADE": ["ROTINEIRA"],
+      }
+  )
+  df_crit = pd.DataFrame({"Solicitacao": ["300010"], "Criticidade": ["EMERGENCIAL"]})
+  df_ped = pd.DataFrame(columns=["SOLICITAÇÃO", "PRODUTO"])
+  crit = processar_panorama(df, df_crit, df_ped, HOJE)["df"]
+  assert crit["CRITICIDADE"].iloc[0] == "EMERGENCIAL"

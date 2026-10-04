@@ -120,7 +120,23 @@ def processar_panorama(df, df_criticidade, df_pedidos, hoje):
       .set_index("Solicitacao")["Criticidade"]
       .to_dict()
   )
-  df[col_criticidade] = chave_solic.map(mapa_criticidade).fillna("")
+  da_aba = chave_solic.map(mapa_criticidade)
+  # Fallback: a própria aba Solicitacoes também tem uma coluna CRITICIDADE,
+  # atualizada pelo Portal Gestão de Compras a cada export de Cotações
+  # (atualizar_criticidade_solicitacoes.py) - a aba separada acima não
+  # recebe esse upsert. Caso real (2026-10-04): 80 Solicitações (ex.: SC
+  # 141398) tinham criticidade na própria aba mas não na separada, e
+  # apareciam em branco no painel. Quando as duas têm valor, a da aba
+  # separada continua valendo (hoje as duas concordam 100%).
+  if col_criticidade in df.columns:
+    propria = (
+        df[col_criticidade].astype(str).str.strip()
+        .replace({"nan": "", "None": "", "NaN": ""})
+    )
+  else:
+    propria = pd.Series("", index=df.index)
+  sem_valor_na_aba = da_aba.isna() | (da_aba.astype(str).str.strip() == "")
+  df[col_criticidade] = da_aba.where(~sem_valor_na_aba, propria).fillna("")
 
   # Número da Cotação já vem pronto na própria aba Solicitacoes (coluna
   # COTAÇÃO) - nem toda Solicitação teve cotação aberta, então fica ""
