@@ -136,7 +136,12 @@ def processar_panorama(df, df_criticidade, df_pedidos, hoje):
   else:
     propria = pd.Series("", index=df.index)
   sem_valor_na_aba = da_aba.isna() | (da_aba.astype(str).str.strip() == "")
-  df[col_criticidade] = da_aba.where(~sem_valor_na_aba, propria).fillna("")
+  # Normaliza caixa/espaços: as duas fontes misturam "Rotineira" (export do
+  # TOTVS) e "ROTINEIRA" (digitado), e o gráfico Criticidade x Status
+  # agrupa por texto exato - virava 4 grupos em vez de 2.
+  df[col_criticidade] = (
+      da_aba.where(~sem_valor_na_aba, propria).fillna("").astype(str).str.strip().str.upper()
+  )
 
   # Número da Cotação já vem pronto na própria aba Solicitacoes (coluna
   # COTAÇÃO) - nem toda Solicitação teve cotação aberta, então fica ""

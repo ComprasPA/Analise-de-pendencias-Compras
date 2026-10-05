@@ -196,6 +196,31 @@ def test_processar_panorama_sem_criticidade_cadastrada():
   assert resultado["sla_geral_emg"] == 0
 
 
+def test_processar_panorama_criticidade_normaliza_caixa_e_espacos():
+  df = pd.DataFrame(
+      {
+          "SOLICITAÇÃO": ["400001", "400002", "400003"],
+          "CENTRO DE CUSTO": ["1225", "1225", "1225"],
+          "DATA EMISSAO": ["01/09/2026"] * 3,
+          "PEDIDO": ["", "", ""],
+          "STATUS": ["", "", ""],
+          "PRODUTO": ["Y1", "Y2", "Y3"],
+          "CRITICIDADE": ["", "", "emergencial "],
+      }
+  )
+  df_criticidade = pd.DataFrame(
+      {
+          "Solicitacao": ["400001", "400002"],
+          "Criticidade": ["Rotineira", " ROTINEIRA"],
+      }
+  )
+  df_pedidos_vazio = pd.DataFrame(columns=["SOLICITAÇÃO", "PRODUTO"])
+
+  resultado = processar_panorama(df, df_criticidade, df_pedidos_vazio, HOJE)
+
+  assert list(resultado["df"]["CRITICIDADE"]) == ["ROTINEIRA", "ROTINEIRA", "EMERGENCIAL"]
+
+
 def test_processar_panorama_cotacao_vem_direto_da_propria_aba_solicitacoes():
   # COTAÇÃO já é uma coluna pronta na aba Solicitacoes (não vem de join
   # com nenhuma outra aba) - nem toda Solicitação teve cotação aberta,
