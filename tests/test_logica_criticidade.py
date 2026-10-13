@@ -75,7 +75,6 @@ def test_filtros_vazios_nao_filtram_e_combinam_com_and():
   assert len(aplicar_filtros(df)) == 6
   assert len(aplicar_filtros(df, meses=["02"])) == 2
   assert len(aplicar_filtros(df, meses=["02"], ccs=["1238"], crits=["Emergencial"])) == 1
-  assert len(aplicar_filtros(df, comps=["Dayana"])) == 3
 
 
 def test_busca_livre_procura_em_descricao_comprador_e_codigos():

@@ -90,17 +90,15 @@ def _casa_busca(df, termo):
   return palheiro.str.contains(termo, regex=False)
 
 
-def aplicar_filtros(df, anos=(), meses=(), ccs=(), crits=(), comps=(), busca="", ignorar_cc_crit=False):
+def aplicar_filtros(df, anos=(), meses=(), ccs=(), crits=(), busca="", ignorar_cc_crit=False):
   """Filtros vazios = sem filtro. ignorar_cc_crit=True e o recorte usado no
-  detalhe de um centro de custo (respeita ano/mes/comprador/busca, mas nao
+  detalhe de um centro de custo (respeita ano/mes/busca, mas nao
   os filtros globais de centro de custo e criticidade)."""
   mascara = pd.Series(True, index=df.index)
   if anos:
     mascara &= df["ano"].isin(anos)
   if meses:
     mascara &= df["mes"].isin(meses)
-  if comps:
-    mascara &= df["comp"].isin(comps)
   if not ignorar_cc_crit:
     if ccs:
       mascara &= df["cc"].isin(ccs)
