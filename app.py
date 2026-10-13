@@ -449,7 +449,7 @@ if df is not None:
     st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("---")
-    row2_c1, row2_c2, row2_c3 = st.columns(3)
+    row2_c1, row2_c2 = st.columns(2)
 
     with row2_c1:
       st.markdown(
@@ -573,234 +573,84 @@ if df is not None:
           key="plotly_top10_cc_scs",
       )
 
-    with row2_c3:
-      st.markdown(
-          '<div class="section-header">CRITICIDADE VS STATUS (QTD.'
-          ' ITENS)</div>',
-          unsafe_allow_html=True,
-      )
-      if col_criticidade:
-        df_crit_stat = df_aberto[
-            df_aberto[col_criticidade]
-            .astype(str)
-            .str.upper()
-            .isin(["ROTINEIRA", "EMERGENCIAL"])
-        ]
-        if not df_crit_stat.empty:
-          crit_stats = (
-              df_crit_stat.groupby([col_criticidade, "Status_Detalhado"])
-              .size()
-              .reset_index(name="Quantidade")
-          )
-          color_map = {
-              "NO PRAZO": "#22c55e" if is_tema_claro else "#388e3c",
-              "ATENÇÃO": "#f59e0b" if is_tema_claro else "#d97706",
-              "FORA DO PRAZO": "#ef4444" if is_tema_claro else "#e53e3e",
-          }
-          fig_crit_stat = go.Figure()
-          for status_val in ["NO PRAZO", "ATENÇÃO", "FORA DO PRAZO"]:
-            df_sub = crit_stats[
-                crit_stats["Status_Detalhado"].str.upper() == status_val
-            ]
-            if not df_sub.empty:
-              fig_crit_stat.add_trace(
-                  go.Bar(
-                      x=df_sub[col_criticidade],
-                      y=df_sub["Quantidade"],
-                      name=status_val.title(),
-                      marker_color=color_map.get(status_val, "#718096"),
-                      text=df_sub["Quantidade"],
-                      textposition="auto",
-                      textfont=dict(
-                          size=11,
-                          color=cor_texto_grafico,
-                          family=familia_fonte_grafico,
-                      ),
-                  )
-              )
-          fig_crit_stat.update_layout(
-              barmode="group",
-              xaxis_title="",
-              yaxis_title="Qtd. ITENS",
-              plot_bgcolor="rgba(0,0,0,0)",
-              paper_bgcolor="rgba(0,0,0,0)",
-              height=320,
-              font=dict(color=cor_texto_grafico),
-              legend=dict(
-                  orientation="h",
-                  yanchor="bottom",
-                  y=1.02,
-                  xanchor="right",
-                  x=1,
-                  font=dict(
-                      family=familia_fonte_grafico,
-                      size=9,
-                      color=cor_texto_grafico,
-                  ),
-              ),
-              xaxis=dict(
-                  showgrid=False,
-                  tickfont=dict(
-                      size=11,
-                      family=familia_fonte_grafico,
-                      color=cor_texto_grafico,
-                  ),
-              ),
-              yaxis=dict(
-                  showgrid=True,
-                  gridcolor="#e2e8f0" if is_tema_claro else "#333333",
-              ),
-          )
-          st.plotly_chart(
-              fig_crit_stat,
-              use_container_width=True,
-              config={"displayModeBar": False},
-              key="plotly_criticidade_vs_status",
-          )
-
     st.markdown("---")
-    row3_c1, row3_c2 = st.columns([1.50, 0.50])
-
-    with row3_c1:
-      st.markdown(
-          '<div class="section-header">TOP 10 SOLICITAÇÕES DE COMPRA DIRETA'
-          " (2026)</div>",
-          unsafe_allow_html=True,
-      )
-
-      df_geral_completo = df.dropna(subset=[col_sc]).copy()
-      df_geral_completo[col_sc] = (
-          df_geral_completo[col_sc].astype(str).str.split(".").str[0].str.zfill(6)
-      )
-
-      col_tipo_candidatas = [
-          c
-          for c in df_geral_completo.columns
-          if any(
-              termo in c.upper()
-              for termo in [
-                  "TIPO",
-                  "GRUPO",
-                  "FORMA",
-                  "COMPRA",
-                  "CLASSIFICAÇÃO",
-              ]
-          )
-      ]
-
-      df_direta_total = df_geral_completo.drop_duplicates(
-          subset=[col_sc]
-      ).copy()
-      filtrado_com_sucesso = False
-
-      if col_tipo_candidatas:
-        for c_cand in col_tipo_candidatas:
-          mask = (
-              df_direta_total[c_cand]
-              .astype(str)
-              .str.upper()
-              .str.contains("DIRETA", na=False)
-          )
-          if mask.sum() > 0:
-            df_direta_total = df_direta_total[mask]
-            filtrado_com_sucesso = True
-            break
-
-      if not filtrado_com_sucesso:
-        for col_str in df_geral_completo.select_dtypes(
-            include=["object", "string"]
-        ).columns:
-          mask_gen = (
-              df_geral_completo[col_str]
-              .astype(str)
-              .str.upper()
-              .str.contains("DIRETA", na=False)
-          )
-          if mask_gen.sum() > 0:
-            scs_diretas = df_geral_completo[mask_gen][col_sc].unique()
-            df_direta_total = df_direta_total[
-                df_direta_total[col_sc].isin(scs_diretas)
-            ]
-            filtrado_com_sucesso = True
-            break
-
-      if filtrado_com_sucesso and not df_direta_total.empty:
-        cc_direta = (
-            df_direta_total.groupby("CC_clean")[col_sc]
-            .nunique()
-            .reset_index(name="Qtd_SCs")
-            .sort_values(by="Qtd_SCs", ascending=False)
-            .head(10)
+    # Top 10 centros de custo por nº de Solicitações (SCs únicas) de cada
+    # criticidade no ano - mesma base e mesma regra de CRITICIDADE do relatório
+    # "Criticidade das Solicitações" (a aba Solicitacoes/Criticidade_Solicitacoes).
+    df_top10_ano = df.dropna(subset=[col_sc]).copy()
+    df_top10_ano = df_top10_ano[df_top10_ano[COL_DT_EMISSAO].dt.year == hoje.year]
+    df_top10_ano["_sc_top10"] = (
+        df_top10_ano[col_sc].astype(str).str.split(".").str[0].str.zfill(6)
+    )
+    df_top10_ano["_crit_top10"] = (
+        df_top10_ano[col_criticidade].astype(str).str.strip().str.upper()
+    )
+    top10_criticidades = [
+        ("EMERGENCIAL", "EMERGENCIAL", "#B4462C", "plotly_top10_emergencial"),
+        ("ROTINEIRA", "ROTINEIRA", "#2F6F5E", "plotly_top10_rotineira"),
+        ("COMPRAS DIRETA", "COMPRA DIRETA", "#C98A2B", "plotly_top10_compra_direta"),
+    ]
+    for coluna_top10, (valor_crit, rotulo_crit, cor_crit, chave_crit) in zip(
+        st.columns(3), top10_criticidades
+    ):
+      with coluna_top10:
+        st.markdown(
+            f'<div class="section-header">TOP 10 SOLICITAÇÕES {rotulo_crit}'
+            f" ({hoje.year})</div>",
+            unsafe_allow_html=True,
         )
-        cc_direta["CC_clean"] = cc_direta["CC_clean"].astype(str)
-
-        cores_direta = ["#3b82f6"] + ["#0d9488"] * (len(cc_direta) - 1)
-        fig_direta = go.Figure(
+        top10_crit = (
+            df_top10_ano[df_top10_ano["_crit_top10"] == valor_crit]
+            .groupby("CC_clean")["_sc_top10"]
+            .nunique()
+            .sort_values(ascending=False)
+            .head(10)
+            .sort_values(ascending=True)
+        )
+        if top10_crit.empty:
+          st.info(f"Nenhuma solicitação {rotulo_crit.lower()} em {hoje.year}.")
+          continue
+        fig_top10_crit = go.Figure(
             go.Bar(
-                x=cc_direta.sort_values(by="Qtd_SCs", ascending=True)[
-                    "Qtd_SCs"
-                ],
-                y=cc_direta.sort_values(by="Qtd_SCs", ascending=True)[
-                    "CC_clean"
-                ],
+                x=top10_crit.values,
+                y=top10_crit.index.astype(str),
                 orientation="h",
-                text=cc_direta.sort_values(by="Qtd_SCs", ascending=True)[
-                    "Qtd_SCs"
-                ],
+                text=top10_crit.values,
                 textposition="outside",
+                cliponaxis=False,
                 textfont=dict(
-                    size=11,
-                    color=cor_texto_grafico,
-                    family=familia_fonte_grafico,
+                    size=11, color=cor_texto_grafico, family=familia_fonte_grafico
                 ),
-                marker_color=cores_direta[::-1],
+                marker=dict(
+                    color=cor_crit,
+                    opacity=[0.8] * (len(top10_crit) - 1) + [1],
+                ),
             )
         )
-        fig_direta.update_layout(
-            xaxis_title="Qtd. Requisições (Compra Direta - 2026)",
+        fig_top10_crit.update_layout(
+            xaxis_title="Qtd. Solicitações",
             yaxis_title="",
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
             height=320,
             font=dict(color=cor_texto_grafico),
-            margin=dict(l=5, r=20, t=10, b=10),
+            margin=dict(l=5, r=45, t=10, b=10),
             xaxis=dict(
                 showgrid=True,
                 gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+                range=[0, int(top10_crit.max()) * 1.3],
             ),
             yaxis=dict(
                 type="category",
-                tickfont=dict(
-                    family=familia_fonte_grafico, color=cor_texto_grafico
-                ),
+                tickfont=dict(family=familia_fonte_grafico, color=cor_texto_grafico),
             ),
         )
         st.plotly_chart(
-            fig_direta,
+            fig_top10_crit,
             use_container_width=True,
             config={"displayModeBar": False},
-            key="plotly_top10_compra_direta",
+            key=chave_crit,
         )
-      else:
-        st.info(
-            "💡 Nenhum registro classificado como 'Direta' foi localizado na"
-            " planilha completa."
-        )
-
-    with row3_c2:
-      st.markdown(
-          '<div class="section-header">ITENS CRÍTICOS</div>',
-          unsafe_allow_html=True,
-      )
-      criticos_df = unique_scs_aberto[unique_scs_aberto["Days"] >= 20]
-      top_critical = criticos_df.sort_values(by="Days", ascending=False)[
-          [col_sc, "CC_clean", "Days"]
-      ].head(7)
-      top_critical.columns = ["Nº SC", "C. CUSTO", "ATRASO"]
-      top_critical["ATRASO"] = top_critical["ATRASO"].astype(str) + " DIAS 🔥"
-      st.dataframe(
-          top_critical, use_container_width=True, height=270, hide_index=True
-      )
 
     st.markdown("---")
     st.markdown(
@@ -1276,6 +1126,109 @@ if df is not None:
             </div>
             """,
           unsafe_allow_html=True,
+      )
+
+    st.markdown("---")
+    crit_status_c1, crit_status_c2 = st.columns([1.50, 0.50])
+
+    with crit_status_c1:
+      st.markdown(
+          '<div class="section-header">CRITICIDADE VS STATUS (QTD.'
+          ' ITENS)</div>',
+          unsafe_allow_html=True,
+      )
+      if col_criticidade:
+        df_crit_stat = df_aberto[
+            df_aberto[col_criticidade]
+            .astype(str)
+            .str.upper()
+            .isin(["ROTINEIRA", "EMERGENCIAL"])
+        ]
+        if not df_crit_stat.empty:
+          crit_stats = (
+              df_crit_stat.groupby([col_criticidade, "Status_Detalhado"])
+              .size()
+              .reset_index(name="Quantidade")
+          )
+          color_map = {
+              "NO PRAZO": "#22c55e" if is_tema_claro else "#388e3c",
+              "ATENÇÃO": "#f59e0b" if is_tema_claro else "#d97706",
+              "FORA DO PRAZO": "#ef4444" if is_tema_claro else "#e53e3e",
+          }
+          fig_crit_stat = go.Figure()
+          for status_val in ["NO PRAZO", "ATENÇÃO", "FORA DO PRAZO"]:
+            df_sub = crit_stats[
+                crit_stats["Status_Detalhado"].str.upper() == status_val
+            ]
+            if not df_sub.empty:
+              fig_crit_stat.add_trace(
+                  go.Bar(
+                      x=df_sub[col_criticidade],
+                      y=df_sub["Quantidade"],
+                      name=status_val.title(),
+                      marker_color=color_map.get(status_val, "#718096"),
+                      text=df_sub["Quantidade"],
+                      textposition="auto",
+                      textfont=dict(
+                          size=11,
+                          color=cor_texto_grafico,
+                          family=familia_fonte_grafico,
+                      ),
+                  )
+              )
+          fig_crit_stat.update_layout(
+              barmode="group",
+              xaxis_title="",
+              yaxis_title="Qtd. ITENS",
+              plot_bgcolor="rgba(0,0,0,0)",
+              paper_bgcolor="rgba(0,0,0,0)",
+              height=320,
+              font=dict(color=cor_texto_grafico),
+              legend=dict(
+                  orientation="h",
+                  yanchor="bottom",
+                  y=1.02,
+                  xanchor="right",
+                  x=1,
+                  font=dict(
+                      family=familia_fonte_grafico,
+                      size=9,
+                      color=cor_texto_grafico,
+                  ),
+              ),
+              xaxis=dict(
+                  showgrid=False,
+                  tickfont=dict(
+                      size=11,
+                      family=familia_fonte_grafico,
+                      color=cor_texto_grafico,
+                  ),
+              ),
+              yaxis=dict(
+                  showgrid=True,
+                  gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+              ),
+          )
+          st.plotly_chart(
+              fig_crit_stat,
+              use_container_width=True,
+              config={"displayModeBar": False},
+              key="plotly_criticidade_vs_status",
+          )
+
+    with crit_status_c2:
+      st.markdown(
+          '<div class="section-header">ITENS CRÍTICOS</div>',
+          unsafe_allow_html=True,
+      )
+      criticos_df = unique_scs_aberto[unique_scs_aberto["Days"] >= 20]
+      top_critical = criticos_df.sort_values(by="Days", ascending=False)[
+          [col_sc, "CC_clean", "Days"]
+      ].head(7)
+      top_critical.columns = ["Nº SC", "C. CUSTO", "ATRASO"]
+      top_critical["ATRASO"] = top_critical["ATRASO"].astype(str) + " DIAS 🔥"
+      st.dataframe(
+          top_critical, use_container_width=True, height=270, hide_index=True
       )
 
     st.markdown("<br>", unsafe_allow_html=True)
