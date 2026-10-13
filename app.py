@@ -1464,5 +1464,90 @@ if df is not None:
       tabela_mensal = pd.concat([tabela_mensal, linha_acumulado], ignore_index=True)
       st.dataframe(tabela_mensal, use_container_width=True, hide_index=True)
 
+    st.markdown("---")
+    st.markdown(
+        '<div class="section-header">CRITICIDADE POR CENTRO DE CUSTO (QTD.'
+        " ITENS EM ABERTO)</div>",
+        unsafe_allow_html=True,
+    )
+
+    df_crit_cc = df_aberto[
+        df_aberto[col_criticidade].astype(str).str.upper().isin(["ROTINEIRA", "EMERGENCIAL"])
+    ]
+    if df_crit_cc.empty:
+      st.info("Sem itens em aberto classificados como Rotineira ou Emergencial.")
+    else:
+      crit_cc = (
+          df_crit_cc.groupby(["CC_clean", col_criticidade])
+          .size()
+          .unstack(fill_value=0)
+          .reindex(columns=["ROTINEIRA", "EMERGENCIAL"], fill_value=0)
+      )
+      crit_cc["Total"] = crit_cc.sum(axis=1)
+      crit_cc = crit_cc.sort_values("Total", ascending=False)
+
+      cores_criticidade = {
+          "ROTINEIRA": "#3b82f6" if is_tema_claro else "#2b6cb0",
+          "EMERGENCIAL": "#8b5cf6" if is_tema_claro else "#805ad5",
+      }
+      fig_crit_cc = go.Figure()
+      for nome_crit in ["ROTINEIRA", "EMERGENCIAL"]:
+        fig_crit_cc.add_trace(
+            go.Bar(
+                x=crit_cc.index.astype(str),
+                y=crit_cc[nome_crit],
+                name=nome_crit.title(),
+                marker_color=cores_criticidade[nome_crit],
+                text=crit_cc[nome_crit].where(
+                    (crit_cc[nome_crit] >= 3) & (crit_cc[nome_crit] < crit_cc["Total"]),
+                    None,
+                ),
+                textposition="inside",
+                textfont=dict(color="#ffffff", family=familia_fonte_grafico, size=10),
+            )
+        )
+      fig_crit_cc.add_trace(
+          go.Scatter(
+              x=crit_cc.index.astype(str),
+              y=crit_cc["Total"],
+              mode="text",
+              text=crit_cc["Total"],
+              textposition="top center",
+              textfont=dict(color=cor_texto_grafico, family=familia_fonte_grafico, size=11),
+              showlegend=False,
+              hoverinfo="skip",
+          )
+      )
+      fig_crit_cc.update_layout(
+          barmode="stack",
+          xaxis_title="Centro de Custo",
+          yaxis_title="Qtd. Itens",
+          plot_bgcolor="rgba(0,0,0,0)",
+          paper_bgcolor="rgba(0,0,0,0)",
+          height=360,
+          margin=dict(l=50, r=10, t=40, b=50),
+          font=dict(color=cor_texto_grafico),
+          legend=dict(
+              orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+              font=dict(family=familia_fonte_grafico, size=10, color=cor_texto_grafico),
+          ),
+          xaxis=dict(
+              type="category",
+              showgrid=False,
+              tickfont=dict(size=10, family=familia_fonte_grafico, color=cor_texto_grafico),
+          ),
+          yaxis=dict(
+              showgrid=True,
+              gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+              range=[0, int(crit_cc["Total"].max()) * 1.15],
+          ),
+      )
+      st.plotly_chart(
+          fig_crit_cc,
+          use_container_width=True,
+          config={"displayModeBar": False},
+          key="plotly_criticidade_por_cc",
+      )
+
   except Exception as e:
     st.error(f"⚠️ Erro analítico no processamento: {e}")
