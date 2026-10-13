@@ -289,7 +289,9 @@ def _secao(df, tema):
 
   st.markdown('<div class="section-header">POR CENTRO DE CUSTO</div>', unsafe_allow_html=True)
   st.caption("Selecione uma linha para abrir o detalhamento — contagem por criticidade e a lista das solicitações.")
-  busca_cc = st.text_input("Buscar centro de custo na tabela", key="crit_busca_cc", placeholder="Ex.: 1238")
+  col_busca_cc, _ = st.columns([1, 4])
+  with col_busca_cc:
+    busca_cc = st.text_input("Centro de Custo:", key="crit_busca_cc", placeholder="Ex.: 1238")
   agg = agregado_por_cc(filtrado)
   if busca_cc.strip():
     agg = agg[agg["cc"].str.contains(busca_cc.strip(), case=False, regex=False)]
