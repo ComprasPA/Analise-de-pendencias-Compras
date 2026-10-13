@@ -237,11 +237,11 @@ def _secao(df, tema):
     )
   with col_legenda:
     linhas = "".join(
-        f"<div style='display:grid;grid-template-columns:14px 1fr auto auto;align-items:center;gap:12px;margin:12px 0;'>"
+        f"<div style='display:grid;grid-template-columns:14px 190px 48px 64px;justify-content:start;align-items:center;gap:12px;margin:12px 0;'>"
         f"<span style='width:12px;height:12px;border-radius:2px;background:{COR_CAT[c]};display:inline-block;'></span>"
         f"<span style='font-size:0.95rem;color:{cor_texto} !important;'>{c}</span>"
-        f"<span style='font-size:0.85rem;color:{mudo} !important;'>{_n(contagem[c])}</span>"
-        f"<span style='font-size:1.1rem;font-weight:bold;min-width:64px;text-align:right;color:{COR_CAT[c]} !important;'>"
+        f"<span style='font-size:0.85rem;text-align:right;color:{mudo} !important;'>{_n(contagem[c])}</span>"
+        f"<span style='font-size:1.1rem;font-weight:bold;text-align:right;color:{COR_CAT[c]} !important;'>"
         f"{_pct(contagem[c] / total * 100)}%</span></div>"
         for c in CATS
     )
