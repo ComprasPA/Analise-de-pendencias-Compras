@@ -453,7 +453,7 @@ if df is not None:
 
     with row2_c1:
       st.markdown(
-          '<div class="section-header">TOP 10 CC (VOLUME DE ITENS)</div>',
+          '<div class="section-header">TOP 10 CC (VOLUME DE ITENS EM ABERTO)</div>',
           unsafe_allow_html=True,
       )
       cc_volume = (
@@ -488,7 +488,7 @@ if df is not None:
           )
       )
       fig_cc_it.update_layout(
-          xaxis_title="Qtd. Itens",
+          xaxis_title="Qtd. Itens em aberto",
           yaxis_title="",
           plot_bgcolor="rgba(0,0,0,0)",
           paper_bgcolor="rgba(0,0,0,0)",
@@ -517,7 +517,7 @@ if df is not None:
 
     with row2_c2:
       st.markdown(
-          '<div class="section-header">TOP 10 CC (QTD. REQUISIÇÕES)</div>',
+          '<div class="section-header">TOP 10 CC (QTD. REQUISIÇÕES EM ABERTO)</div>',
           unsafe_allow_html=True,
       )
       cc_scs = (
@@ -546,7 +546,7 @@ if df is not None:
           )
       )
       fig_cc_sc.update_layout(
-          xaxis_title="Qtd. Requisições (SCs)",
+          xaxis_title="Qtd. Requisições (SCs) em aberto",
           yaxis_title="",
           plot_bgcolor="rgba(0,0,0,0)",
           paper_bgcolor="rgba(0,0,0,0)",
@@ -1129,7 +1129,7 @@ if df is not None:
       )
 
     st.markdown("---")
-    crit_status_c1, crit_status_c2 = st.columns([1.50, 0.50])
+    _, crit_status_c1, crit_status_c2, _ = st.columns([0.8, 1.2, 0.8, 0.8])
 
     with crit_status_c1:
       st.markdown(
