@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from logica_panorama import classificar_aging, processar_panorama
+from logica_panorama import classificar_aging, periodo_fechamento, processar_panorama
 
 
 # --- classificar_aging --------------------------------------------------------
@@ -32,6 +32,25 @@ def test_classificar_aging_limites_por_criticidade(criticidade, dias, esperado):
 def test_classificar_aging_aceita_nome_de_coluna_alternativo():
   row = {"OUTRA_COL": "ROTINEIRA", "Days": 20}
   assert classificar_aging(row, col_criticidade="OUTRA_COL") == "Fora do Prazo"
+
+
+# --- periodo_fechamento ---------------------------------------------------------
+# Ciclo de fechamento: dia 26 do mês anterior até o dia 25 do mês.
+
+@pytest.mark.parametrize(
+    "data, esperado",
+    [
+        ("2026-09-01", "2026-09"),
+        ("2026-09-25", "2026-09"),   # último dia do ciclo de set
+        ("2026-09-26", "2026-10"),   # primeiro dia do ciclo de out
+        ("2026-08-26", "2026-09"),
+        ("2026-12-26", "2027-01"),   # virada de ano
+        ("2025-12-31", "2026-01"),
+    ],
+)
+def test_periodo_fechamento_ciclo_26_a_25(data, esperado):
+  resultado = periodo_fechamento(pd.Series(pd.to_datetime([data])))
+  assert str(resultado.iloc[0]) == esperado
 
 
 # --- processar_panorama --------------------------------------------------------

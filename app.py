@@ -17,6 +17,7 @@ from logica_panorama import (
     LIMITE_SLA_PADRAO,
     MAPA_COMPRADORES,
     STATUS_FORA_DO_BACKLOG,
+    periodo_fechamento,
     processar_panorama,
 )
 
@@ -1304,14 +1305,16 @@ if df is not None:
     df_mensal = df.dropna(subset=[COL_DT_EMISSAO]).copy()
     if cc_selecionados_mensal:
       df_mensal = df_mensal[df_mensal["CC_clean"].isin(cc_selecionados_mensal)]
-    df_mensal["_periodo"] = df_mensal[COL_DT_EMISSAO].dt.to_period("M")
+    df_mensal["_periodo"] = periodo_fechamento(df_mensal[COL_DT_EMISSAO])
     df_mensal["_atendido"] = df_mensal["Status_Detalhado"] == "Atendidas"
 
-    # Jan do ano corrente até o mês atual - meses passados aparecem mesmo
+    # Jan do ano corrente até o mês de fechamento em andamento (ciclo 26 a
+    # 25: de 26/set em diante já é "out") - meses passados aparecem mesmo
     # com 0 (pra não mascarar uma lacuna real na base), meses futuros nem
     # entram na lista (não faz sentido mostrar um mês que ainda não chegou).
+    periodo_atual = periodo_fechamento(pd.Series([hoje])).iloc[0]
     periodos_ano = pd.period_range(
-        start=f"{hoje.year}-01", end=hoje.to_period("M"), freq="M"
+        start=f"{periodo_atual.year}-01", end=periodo_atual, freq="M"
     )
     resumo_mensal = (
         df_mensal.groupby("_periodo")["_atendido"]

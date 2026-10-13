@@ -66,6 +66,18 @@ LIMITE_SLA_PADRAO = 15
 
 COMPRADORES_SNAPSHOT = ["Ednilson", "Dayana", "Sílvio"]
 
+# O fechamento mensal vai do dia 26 do mês anterior ao dia 25 do mês (ex.:
+# "set/26" = 26/08 a 25/09) - a emissão do dia 26 em diante já cai no mês
+# seguinte.
+DIA_CORTE_FECHAMENTO = 25
+
+
+def periodo_fechamento(datas, dia_corte=DIA_CORTE_FECHAMENTO):
+  """Série de datas -> Série de Period('M') do mês de fechamento de cada uma."""
+  datas = pd.to_datetime(datas)
+  periodo = datas.dt.to_period("M")
+  return periodo.where(datas.dt.day <= dia_corte, periodo + 1)
+
 
 def classificar_aging(row, col_criticidade=COL_CRITICIDADE):
   limite = LIMITE_SLA_DIAS.get(
