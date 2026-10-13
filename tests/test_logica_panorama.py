@@ -420,3 +420,9 @@ def test_aba_separada_prevalece_quando_as_duas_tem_valor():
   df_ped = pd.DataFrame(columns=["SOLICITAÇÃO", "PRODUTO"])
   crit = processar_panorama(df, df_crit, df_ped, HOJE)["df"]
   assert crit["CRITICIDADE"].iloc[0] == "EMERGENCIAL"
+
+
+def test_bloqueada_do_totvs_sai_do_backlog():
+  from logica_panorama import STATUS_FORA_DO_BACKLOG
+
+  assert "BLOQUEADA" in STATUS_FORA_DO_BACKLOG

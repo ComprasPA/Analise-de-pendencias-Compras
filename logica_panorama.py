@@ -53,6 +53,9 @@ MAPA_COMPRADORES = {
 STATUS_FORA_DO_BACKLOG = {
     "REJEITADO", "CONTRATO", "REVISAR",
     "ATENDIDA", "REJEITADA", "PEDIDO GERADO",
+    # Legenda "Solicitacao bloqueada" do Totvs: a SC nao esta mais aguardando
+    # cotacao/compra (caso real, 2026-10-13: SC 141552 ainda no backlog).
+    "BLOQUEADA",
 }
 
 # Limite de SLA (dias) por criticidade - mesmo usado nos cartões "SLA Médio".
