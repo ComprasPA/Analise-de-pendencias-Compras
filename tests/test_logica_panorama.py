@@ -445,3 +445,9 @@ def test_bloqueada_do_totvs_sai_do_backlog():
   from logica_panorama import STATUS_FORA_DO_BACKLOG
 
   assert "BLOQUEADA" in STATUS_FORA_DO_BACKLOG
+
+
+def test_atendido_masculino_sai_do_backlog():
+  from logica_panorama import STATUS_FORA_DO_BACKLOG
+
+  assert "ATENDIDO" in STATUS_FORA_DO_BACKLOG

@@ -56,6 +56,9 @@ STATUS_FORA_DO_BACKLOG = {
     # Legenda "Solicitacao bloqueada" do Totvs: a SC nao esta mais aguardando
     # cotacao/compra (caso real, 2026-10-13: SC 141552 ainda no backlog).
     "BLOQUEADA",
+    # Grade nova de status das Solicitacoes (2026-10-27): Legenda "Totalmente
+    # Atendida" agora grava ATENDIDO (masculino).
+    "ATENDIDO",
 }
 
 # Limite de SLA (dias) por criticidade - mesmo usado nos cartões "SLA Médio".
