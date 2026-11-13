@@ -124,7 +124,7 @@ div.st-key-header_card img { width: 130px; display: block; }
 
 /* ---------- cartoes ---------- */
 div[data-testid="stPlotlyChart"] { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  padding: .45rem .55rem; box-shadow: var(--shadow); overflow: hidden; }
+  padding: 0; box-shadow: var(--shadow); overflow: hidden; }
 div[data-testid="stDataFrame"] { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
 div[data-testid="stExpander"] details { background: var(--surface); border: 1px solid var(--border) !important; border-radius: 12px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: .9rem 1rem; box-shadow: var(--shadow); }
@@ -171,3 +171,36 @@ div[data-testid="stDialog"] > div { background: var(--bg) !important; border: 1p
 .stDataFrame td, .stDataFrame th { font-size: .82rem !important; }
 div[data-testid="stDataFrame"] { max-width: 60% !important; margin-left: auto !important; margin-right: auto !important; }
 """
+
+
+# Folga interna dos graficos dentro do cartao. Padding CSS no cartao nao serve:
+# o Plotly mede o container com clientWidth (que inclui o padding) e o grafico
+# vaza pra fora do cartao, cortando a borda direita. A folga entra, entao, como
+# margem do proprio grafico (altura/largura do elemento nao mudam).
+FOLGA_H = 16
+FOLGA_V = 8
+
+
+def instalar_folga_plotly():
+  import streamlit as st
+
+  if getattr(st.plotly_chart, "_pa_folga", False):
+    return
+  original = st.plotly_chart
+
+  def plotly_chart(figure_or_data, *args, **kwargs):
+    layout = getattr(figure_or_data, "layout", None)
+    if layout is not None:
+      margem = layout.margin
+      figure_or_data.update_layout(
+          margin=dict(
+              l=(margem.l if margem.l is not None else 80) + FOLGA_H,
+              r=(margem.r if margem.r is not None else 80) + FOLGA_H,
+              t=(margem.t if margem.t is not None else 100) + FOLGA_V,
+              b=(margem.b if margem.b is not None else 80) + FOLGA_V,
+          )
+      )
+    return original(figure_or_data, *args, **kwargs)
+
+  plotly_chart._pa_folga = True
+  st.plotly_chart = plotly_chart

@@ -132,6 +132,7 @@ weight_gauge = "600" if is_tema_claro else "800"
 weight_th = "500" if is_tema_claro else "700"
 
 st.markdown(estilo.gerar_css(is_tema_claro), unsafe_allow_html=True)
+estilo.instalar_folga_plotly()
 st.markdown('<div class="app-signature">Created by SS.</div>', unsafe_allow_html=True)
 
 tokens_tema = estilo.tokens(is_tema_claro)
@@ -898,7 +899,7 @@ if df is not None:
 
           st.markdown(
               f"""
-                    <div class="card" style="text-align: center; padding: .6rem .8rem; margin-top: 8px; font-size: .78rem; line-height: 1.55;">
+                    <div class="card" style="text-align: center; padding: .8rem 1rem; margin-top: 8px; font-size: .78rem; line-height: 1.55;">
                         <span style="color: #22c55e !important; font-weight: 600;">✓ {qtd_atendidas} atendidas</span>
                         <span style="color: var(--muted) !important;"> · </span>
                         <span style="color: {tokens_tema['accent']} !important; font-weight: 600;">{qtd_pedidos_gerados} c/ pedido</span><br>
