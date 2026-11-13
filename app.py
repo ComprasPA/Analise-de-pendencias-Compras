@@ -1070,12 +1070,14 @@ if df is not None:
       criticos_df = unique_scs_aberto[unique_scs_aberto["Days"] >= 20]
       top_critical = criticos_df.sort_values(by="Days", ascending=False)[
           [col_sc, "CC_clean", "Days"]
-      ].head(7)
+      ].head(8)
       top_critical.columns = ["Nº SC", "C. CUSTO", "ATRASO"]
       top_critical["ATRASO"] = top_critical["ATRASO"].astype(str) + " DIAS 🔥"
-      st.dataframe(
-          top_critical, use_container_width=True, height=270, hide_index=True
-      )
+      # Mesma altura do gráfico ao lado (320px) pra as duas caixas alinharem.
+      with st.container(key="itens_criticos_wrap"):
+        st.dataframe(
+            top_critical, use_container_width=True, height=320, hide_index=True
+        )
 
     st.markdown("---")
     MESES_PT = {
