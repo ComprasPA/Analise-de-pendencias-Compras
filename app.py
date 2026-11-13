@@ -328,9 +328,9 @@ if df is not None:
 
       st.markdown(
           f"""
-            <div class="card" style="display: flex; flex-direction: column; justify-content: center; min-height: 190px;">
+            <div class="card" style="display: flex; flex-direction: column; justify-content: center; box-sizing: border-box; height: 150px; padding: .6rem 1rem;">
                 <div class="kpi-label">Volumetria em aberto</div>
-                <div style="display: flex; gap: 1.6rem; margin-top: .55rem;">
+                <div style="display: flex; gap: 1.6rem; margin-top: .3rem;">
                     <div>
                         <div class="kpi-value" style="color: {tokens_tema['accent']} !important;">{total_sc_unicas_aberto}</div>
                         <div class="kpi-sub">Solicitações (SCs)</div>
@@ -340,7 +340,7 @@ if df is not None:
                         <div class="kpi-sub">Itens sem pedido</div>
                     </div>
                 </div>
-                <div style="margin-top: .7rem; padding-top: .55rem; border-top: 1px solid var(--border); font-size: .72rem; color: var(--muted) !important;">{texto_comparativo}</div>
+                <div style="margin-top: .45rem; padding-top: .4rem; border-top: 1px solid var(--border); font-size: .72rem; color: var(--muted) !important;">{texto_comparativo}</div>
             </div>
             """,
           unsafe_allow_html=True,
