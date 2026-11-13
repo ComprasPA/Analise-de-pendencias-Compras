@@ -11,6 +11,8 @@ painel inteiro.
 import plotly.graph_objects as go
 import streamlit as st
 
+import estilo
+
 from logica_criticidade import (
     CATS,
     MESES_NOME,
@@ -99,10 +101,11 @@ def _abrir_detalhe(df, cc, filtros):
 def _secao(df, tema):
   cor_texto = tema["cor_texto"]
   fonte = tema["fonte"]
-  fundo_card = "#f1f5f9" if tema["claro"] else "#1a202c"
-  borda = "#e2e8f0" if tema["claro"] else "#333333"
-  mudo = "#64748b" if tema["claro"] else "#94a3b8"
-  grade = "#e2e8f0" if tema["claro"] else "#333333"
+  t = estilo.tokens(tema["claro"])
+  fundo_card = t["surface"]
+  borda = t["border"]
+  mudo = t["muted"]
+  grade = t["grade"]
 
   st.markdown(
       "<style>"
@@ -198,7 +201,7 @@ def _secao(df, tema):
     st.info("Nenhum registro corresponde aos filtros selecionados.")
     return
 
-  fundo_pagina = "#ffffff" if tema["claro"] else "#0e1117"
+  fundo_pagina = t["surface"]
   _, centro, _ = st.columns([0.7, 3, 0.7])
   col_rosca, col_legenda = centro.columns([1, 1.25])
   with col_rosca:

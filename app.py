@@ -1,5 +1,7 @@
+import base64
 import datetime
 import io
+from pathlib import Path
 import json
 import gspread
 import pandas as pd
@@ -9,6 +11,7 @@ import requests
 import streamlit as st
 from google.oauth2.service_account import Credentials
 
+import estilo
 from painel_criticidade import renderizar_criticidade_solicitacoes
 from logica_panorama import (
     COL_COTACAO,
@@ -82,38 +85,45 @@ def salvar_historico_dia(worksheet, data_str, snapshot):
   else:
     worksheet.append_row([data_str, dados_json], value_input_option="RAW")
 
-col_fonte, col_refresh, col_tema = st.columns([5, 0.6, 1])
-with col_fonte:
-  st.caption("🔗 Fonte: Google Sheets (Guia: Solicitações) — sincronização automática")
-with col_refresh:
-  if st.button("🔄", help="Atualizar dados agora"):
-    st.cache_data.clear()
-    st.rerun()
-with col_tema:
-  modo_escuro = st.toggle("☀️ / 🌙", value=True, help="Alternar entre tema claro e escuro")
+@st.cache_data(show_spinner=False)
+def logo_base64(nome):
+  try:
+    return base64.b64encode((Path(__file__).parent / "assets" / nome).read_bytes()).decode()
+  except OSError:
+    return ""
+
+
+with st.container(key="header_card"):
+  col_logo, col_marca, col_acoes = st.columns([1.5, 6.0, 2.4], vertical_alignment="center")
+  with col_logo:
+    st.markdown(
+        f'<img class="pa-logo pa-logo-claro" src="data:image/png;base64,{logo_base64("logo.png")}" alt="Parente Andrade">'
+        f'<img class="pa-logo pa-logo-escuro" src="data:image/png;base64,{logo_base64("logo_escuro.png")}" alt="Parente Andrade">',
+        unsafe_allow_html=True,
+    )
+  with col_marca:
+    st.markdown(
+        """
+        <div class="brand-text-block">
+            <span class="brand-eyebrow">Coordenação de Suprimentos</span>
+            <span class="brand-subtitle">Panorama Executivo de Suprimentos</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+  with col_acoes:
+    col_refresh, col_tema = st.columns([1, 2.6], vertical_alignment="center")
+    with col_refresh:
+      if st.button("↻", help="Atualizar dados agora"):
+        st.cache_data.clear()
+        st.rerun()
+    with col_tema:
+      modo_escuro = st.toggle("Tema escuro", value=True, help="Alternar entre tema claro e escuro")
 
 tema_selecionado = "Escuro" if modo_escuro else "Claro"
 data_base = datetime.date.today()
 
 is_tema_claro = tema_selecionado == "Claro"
-
-if tema_selecionado == "Escuro":
-  css_tema = """
-        .stApp { background-color: #0e1117 !important; color: #f8fafc !important; }
-        .header-box { background-color: #1f3b58 !important; color: #ffffff !important; }
-        .resumo-bar, .section-header { background-color: #2b4c7e !important; color: #ffffff !important; }
-        p, span, label, div, h1, h2, h3, h4, h5, h6 { color: #f8fafc !important; }
-        div[data-testid="stDialog"] > div { background-color: #0e1117 !important; }
-        div[data-testid="stButtonGroup"] button { background-color: #1a202c !important; }
-    """
-else:
-  css_tema = """
-        .stApp { background-color: #ffffff !important; color: #334155 !important; }
-        .header-box { background-color: #1e3a8a !important; color: #ffffff !important; }
-        .resumo-bar, .section-header { background-color: #3b82f6 !important; color: #ffffff !important; }
-        p, span, label, div, h1, h2, h3, h4, h5, h6 { color: #334155 !important; }
-        div[data-testid="stDialog"] > div { background-color: #ffffff !important; }
-    """
 
 weight_title = "600" if is_tema_claro else "bold"
 weight_sub = "400" if is_tema_claro else "bold"
@@ -121,76 +131,12 @@ weight_resumo = "600" if is_tema_claro else "bold"
 weight_gauge = "600" if is_tema_claro else "800"
 weight_th = "500" if is_tema_claro else "700"
 
-st.markdown(
-    f"""
-    <style>
-    header[data-testid="stHeader"], [data-testid="stDecoration"], .viewerBadge_container__1QSob, [data-testid="manage-app-button"], #MainMenu, footer {{
-        visibility: hidden;
-        display: none !important;
-    }}
-    .block-container {{
-        padding-top: 1rem;
-        padding-bottom: 2rem;
-        padding-left: 1.5rem;
-        padding-right: 1.5rem;
-        max-width: 100% !important;
-    }}
-    .header-box {{
-        padding: 12px 20px;
-        border-radius: 4px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-    }}
-    .header-title {{ font-size: 1.8rem; font-weight: {weight_title}; color: #ffffff !important; }}
-    .header-sub {{ font-size: 1.05rem; font-weight: {weight_sub}; color: #ffffff !important; }}
-    .resumo-bar {{
-        text-align: center;
-        font-weight: {weight_resumo};
-        font-size: 0.95rem;
-        padding: 6px;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        margin-bottom: 15px;
-        border-radius: 2px;
-        color: #ffffff !important;
-    }}
-    .section-header {{
-        text-align: center;
-        font-weight: {weight_resumo};
-        font-size: 0.9rem;
-        padding: 6px;
-        text-transform: uppercase;
-        border-radius: 2px;
-        margin-bottom: 8px;
-        color: #ffffff !important;
-    }}
-    .gauge-footer {{
-        text-align: center;
-        font-size: 1rem;
-        font-weight: {weight_gauge};
-        margin-top: -5px;
-    }}
-    div[data-testid="stDataFrame"] {{
-        max-width: 60% !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-    }}
-    .stDataFrame td, .stDataFrame th {{
-        font-size: 0.82rem !important;
-        font-weight: {weight_th} !important;
-        padding: 2px 3px !important;
-        text-align: center !important;
-    }}
-    {css_tema}
-    </style>
-""",
-    unsafe_allow_html=True,
-)
+st.markdown(estilo.gerar_css(is_tema_claro), unsafe_allow_html=True)
+st.markdown('<div class="app-signature">Created by SS.</div>', unsafe_allow_html=True)
 
-cor_texto_grafico = "#ffffff" if not is_tema_claro else "#334155"
-familia_fonte_grafico = "Arial" if is_tema_claro else "Arial Black"
+tokens_tema = estilo.tokens(is_tema_claro)
+cor_texto_grafico = tokens_tema["texto_grafico"]
+familia_fonte_grafico = "Inter, Arial, sans-serif"
 
 df = None
 df_criticidade = pd.DataFrame(columns=["Solicitacao", "Criticidade"])
@@ -275,17 +221,22 @@ if df is not None:
 
     st.markdown(
         f"""
-        <div class="header-box">
-            <span class="header-title">PANORAMA DE REQUISIÇÕES PENDENTES DE COMPRA (EM ABERTO)</span>
-            <span class="header-sub">GOOGLE SHEETS | {hoje.strftime("%d/%m/%Y")}</span>
+        <div class="app-header">
+            <div>
+                <h1 class="app-title">Panorama de Requisições Pendentes de Compra</h1>
+                <div class="app-subtitle">Diagnóstico e validação estratégica — volumetria, criticidade e status dos itens em aberto</div>
+            </div>
+            <div class="app-chips">
+                <span class="chip"><span class="chip-dot"></span>Google Sheets</span>
+                <span class="chip">Atualizado em <b>{hoje.strftime("%d/%m/%Y")}</b></span>
+            </div>
         </div>
-        <div class="resumo-bar">DIAGNÓSTICO E VALIDAÇÃO ESTRATÉGICA (VOLUMETRIA, CRITICIDADE E STATUS)</div>
         """,
         unsafe_allow_html=True,
     )
 
     def criar_gauge(
-        titulo, valor, max_val, cor_barra, sufixo="", altura=130, title_size=10
+        titulo, valor, max_val, cor_barra, sufixo="", altura=130, title_size=10, rodape=None
     ):
       fig = go.Figure(
           go.Indicator(
@@ -294,49 +245,69 @@ if df is not None:
               number={
                   "suffix": sufixo,
                   "font": {
-                      "size": 20,
-                      "color": cor_texto_grafico,
+                      "size": 24,
+                      "color": tokens_tema["text"],
                       "family": familia_fonte_grafico,
                   },
               },
               title={
                   "text": titulo,
                   "font": {
-                      "size": title_size,
-                      "color": cor_texto_grafico,
+                      "size": title_size + 1,
+                      "color": tokens_tema["muted"],
                       "family": familia_fonte_grafico,
                   },
               },
               gauge={
-                  "axis": {
-                      "range": [None, max_val],
-                      "tickwidth": 1,
-                      "tickcolor": "#475569",
-                      "tickfont": {
-                          "size": 9,
-                          "color": cor_texto_grafico,
-                          "family": familia_fonte_grafico,
-                      },
-                  },
-                  "bar": {"color": cor_barra},
-                  "bgcolor": "rgba(0,0,0,0)",
+                  "axis": {"range": [None, max_val], "visible": False},
+                  "bar": {"color": cor_barra, "thickness": 0.32},
+                  "bgcolor": tokens_tema["surface2"],
                   "borderwidth": 0,
-                  "steps": [
-                      {
-                          "range": [0, max_val * 0.6],
-                          "color": "#2a3b4c" if not is_tema_claro else "#f1f5f9",
-                      },
-                      {
-                          "range": [max_val * 0.6, max_val],
-                          "color": "#1f2937" if not is_tema_claro else "#e2e8f0",
-                      },
-                  ],
+              },
+          )
+      )
+      if rodape:
+        fig.add_annotation(
+            text=rodape, x=0.5, y=0, xref="paper", yref="paper",
+            xanchor="center", yanchor="top", yshift=-6, showarrow=False,
+            font=dict(size=13, color=cor_barra, family=familia_fonte_grafico),
+        )
+      fig.update_layout(
+          height=altura,
+          margin=dict(l=20, r=20, t=40, b=30 if rodape else 5),
+          paper_bgcolor="rgba(0,0,0,0)",
+          plot_bgcolor="rgba(0,0,0,0)",
+      )
+      return fig
+
+    def criar_gauge_sla(valor, max_val, limite, cor_barra):
+      fig = go.Figure(
+          go.Indicator(
+              mode="gauge+number",
+              value=valor,
+              number={
+                  "font": {
+                      "size": 20,
+                      "color": tokens_tema["text"],
+                      "family": familia_fonte_grafico,
+                  }
+              },
+              gauge={
+                  "axis": {"range": [0, max_val], "visible": False},
+                  "bar": {"color": cor_barra, "thickness": 0.32},
+                  "bgcolor": tokens_tema["surface2"],
+                  "borderwidth": 0,
+                  "threshold": {
+                      "line": {"color": "#ef4444", "width": 2},
+                      "thickness": 0.9,
+                      "value": limite,
+                  },
               },
           )
       )
       fig.update_layout(
-          height=altura,
-          margin=dict(l=20, r=20, t=40, b=5),
+          height=96,
+          margin=dict(l=10, r=10, t=16, b=4),
           paper_bgcolor="rgba(0,0,0,0)",
           plot_bgcolor="rgba(0,0,0,0)",
       )
@@ -354,17 +325,21 @@ if df is not None:
       else:
         texto_comparativo = "Comparativo vs Ontem: Aguardando 2º dia"
 
-      border_ontem = "#cbd5e1" if is_tema_claro else "#334155"
       st.markdown(
           f"""
-            <div style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; text-align: center; display: flex; flex-direction: column; justify-content: center;">
-                <div style="font-size: 0.95rem; font-weight: {weight_resumo}; margin-bottom: 2px;">VOLUMETRIA EM ABERTO</div>
-                <div style="font-size: 1.95rem; font-weight: bold; color: #2563eb; line-height: 1.1;">{total_sc_unicas_aberto}</div>
-                <div style="font-size: 0.85rem; font-weight: {weight_th};">Solicitações (SCs)</div>
-                <div style="border-top: 1px dashed #cbd5e1; margin: 2px 0;"></div>
-                <div style="font-size: 1.5rem; font-weight: bold; color: #d97706; line-height: 1.1;">{sem_pedido_total}</div>
-                <div style="font-size: 0.85rem; font-weight: {weight_th};">Itens Sem Pedido</div>
-                <div style="margin-top: 6px; padding: 4px 6px; border: 1px solid {border_ontem}; border-radius: 4px; font-size: 0.72rem; color: #64748b;">{texto_comparativo}</div>
+            <div class="card" style="display: flex; flex-direction: column; justify-content: center; min-height: 190px;">
+                <div class="kpi-label">Volumetria em aberto</div>
+                <div style="display: flex; gap: 1.6rem; margin-top: .55rem;">
+                    <div>
+                        <div class="kpi-value" style="color: {tokens_tema['accent']} !important;">{total_sc_unicas_aberto}</div>
+                        <div class="kpi-sub">Solicitações (SCs)</div>
+                    </div>
+                    <div>
+                        <div class="kpi-value" style="color: #f59e0b !important;">{sem_pedido_total}</div>
+                        <div class="kpi-sub">Itens sem pedido</div>
+                    </div>
+                </div>
+                <div style="margin-top: .7rem; padding-top: .55rem; border-top: 1px solid var(--border); font-size: .72rem; color: var(--muted) !important;">{texto_comparativo}</div>
             </div>
             """,
           unsafe_allow_html=True,
@@ -372,16 +347,12 @@ if df is not None:
 
     def render_gauge(col, titulo, valor, max_val, cor, key_suffix):
       with col:
+        perc = (valor / max_val * 100) if max_val > 0 else 0
         st.plotly_chart(
-            criar_gauge(titulo, valor, max_val, cor, altura=130),
+            criar_gauge(titulo, valor, max_val, cor, altura=150, rodape=f"{perc:.1f}%"),
             use_container_width=True,
             config={"displayModeBar": False},
             key=f"gauge_superior_{key_suffix}",
-        )
-        perc = (valor / max_val * 100) if max_val > 0 else 0
-        st.markdown(
-            f"<div class='gauge-footer' style='color: {cor};'>{perc:.1f}%</div>",
-            unsafe_allow_html=True,
         )
 
     crit_counts = (
@@ -401,7 +372,7 @@ if df is not None:
         "ROTINEIRA",
         qtd_rot,
         total_linhas_aberto,
-        "#3b82f6" if is_tema_claro else "#2b6cb0",
+        "#3b82f6",
         "rot",
     )
     render_gauge(
@@ -409,14 +380,14 @@ if df is not None:
         "EMERGENCIAL",
         qtd_emg,
         total_linhas_aberto,
-        "#8b5cf6" if is_tema_claro else "#805ad5",
+        "#8b5cf6",
         "emg",
     )
 
     with row1_div:
       st.markdown(
           f"""
-            <div style="border-left: 2px solid {'#cbd5e1' if is_tema_claro else '#333333'}; height: 140px; margin: auto; margin-top: 5px;"></div>
+            <div style="border-left: 1px solid var(--border); height: 120px; margin: auto; margin-top: 5px;"></div>
             """,
           unsafe_allow_html=True,
       )
@@ -426,7 +397,7 @@ if df is not None:
         "NO PRAZO",
         qtd_no_prazo,
         total_linhas_aberto,
-        "#22c55e" if is_tema_claro else "#388e3c",
+        "#22c55e",
         "no_prazo",
     )
     render_gauge(
@@ -434,7 +405,7 @@ if df is not None:
         "ATENÇÃO",
         qtd_atencao,
         total_linhas_aberto,
-        "#f59e0b" if is_tema_claro else "#d97706",
+        "#f59e0b",
         "atencao",
     )
     render_gauge(
@@ -442,7 +413,7 @@ if df is not None:
         "FORA DO PRAZO",
         qtd_fora,
         total_linhas_aberto,
-        "#ef4444" if is_tema_claro else "#e53e3e",
+        "#ef4444",
         "fora_prazo",
     )
 
@@ -479,6 +450,7 @@ if df is not None:
                   "Quantidade"
               ],
               textposition="outside",
+              cliponaxis=False,
               textfont=dict(
                   size=11,
                   color=cor_texto_grafico,
@@ -493,11 +465,11 @@ if df is not None:
           plot_bgcolor="rgba(0,0,0,0)",
           paper_bgcolor="rgba(0,0,0,0)",
           font=dict(color=cor_texto_grafico),
-          margin=dict(l=5, r=10, t=10, b=10),
+          margin=dict(l=5, r=34, t=10, b=10),
           height=320,
           xaxis=dict(
               showgrid=True,
-              gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+              gridcolor=tokens_tema["grade"],
           ),
           yaxis=dict(
               type="category",
@@ -537,6 +509,7 @@ if df is not None:
               orientation="h",
               text=cc_scs.sort_values(by="Qtd_SCs", ascending=True)["Qtd_SCs"],
               textposition="outside",
+              cliponaxis=False,
               textfont=dict(
                   size=11,
                   color=cor_texto_grafico,
@@ -551,11 +524,11 @@ if df is not None:
           plot_bgcolor="rgba(0,0,0,0)",
           paper_bgcolor="rgba(0,0,0,0)",
           font=dict(color=cor_texto_grafico),
-          margin=dict(l=5, r=10, t=10, b=10),
+          margin=dict(l=5, r=34, t=10, b=10),
           height=320,
           xaxis=dict(
               showgrid=True,
-              gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+              gridcolor=tokens_tema["grade"],
           ),
           yaxis=dict(
               type="category",
@@ -637,7 +610,7 @@ if df is not None:
             margin=dict(l=5, r=45, t=10, b=10),
             xaxis=dict(
                 showgrid=True,
-                gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+                gridcolor=tokens_tema["grade"],
                 range=[0, int(top10_crit.max()) * 1.3],
             ),
             yaxis=dict(
@@ -664,9 +637,9 @@ if df is not None:
     colunas_st = [row4_c1, row4_c2, row4_c3]
 
     color_status_map = {
-        "No Prazo": "#22c55e" if is_tema_claro else "#388e3c",
-        "Atenção": "#f59e0b" if is_tema_claro else "#d97706",
-        "Fora do Prazo": "#ef4444" if is_tema_claro else "#e53e3e",
+        "No Prazo": "#22c55e",
+        "Atenção": "#f59e0b",
+        "Fora do Prazo": "#ef4444",
     }
     ordem_status_aberto = ["Fora do Prazo", "Atenção", "No Prazo"]
 
@@ -820,7 +793,7 @@ if df is not None:
               100,
               cor_gauge_comp,
               sufixo="%",
-              altura=110,
+              altura=140,
               title_size=10,
           )
           st.plotly_chart(
@@ -875,12 +848,12 @@ if df is not None:
                 yaxis_title="",
                 plot_bgcolor="rgba(0,0,0,0)",
                 paper_bgcolor="rgba(0,0,0,0)",
-                height=130,
+                height=158,
                 font=dict(color=cor_texto_grafico),
-                margin=dict(l=5, r=25, t=0, b=10),
+                margin=dict(l=5, r=25, t=6, b=36),
                 xaxis=dict(
                     showgrid=True,
-                    gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+                    gridcolor=tokens_tema["grade"],
                     range=[0, max(comp_stats["Percentual"].max() * 1.35, 100)],
                     tickfont=dict(size=8, color=cor_texto_grafico),
                 ),
@@ -923,130 +896,24 @@ if df is not None:
           else:
             st.info(f"Fila limpa para {comp}.")
 
-          bg_atendidos = "#f1f5f9" if is_tema_claro else "#1a202c"
-          color_atendidos = "#2563eb" if is_tema_claro else "#63b3ed"
-          border_atendidos = "transparent" if is_tema_claro else "#333333"
-
           st.markdown(
               f"""
-                    <div style='text-align: center; font-size: 0.78rem; font-weight: {weight_resumo}; background-color: {bg_atendidos}; color: {color_atendidos}; padding: 6px; border-radius: 4px; margin-top: 8px; margin-bottom: 0px; border: 1px solid {border_atendidos};'>
-                        ✅ {qtd_atendidas} Atendidas | 📦 {qtd_pedidos_gerados} C/ Pedido<br>
-                        ⏳ <b>{sem_ped_atual} Itens S/ Pedido (Fila)</b><br>
-                        <span style="font-size: 0.68rem; font-weight: 500; color: #64748b;">{texto_produtividade}</span>
+                    <div class="card" style="text-align: center; padding: .6rem .8rem; margin-top: 8px; font-size: .78rem; line-height: 1.55;">
+                        <span style="color: #22c55e !important; font-weight: 600;">✓ {qtd_atendidas} atendidas</span>
+                        <span style="color: var(--muted) !important;"> · </span>
+                        <span style="color: {tokens_tema['accent']} !important; font-weight: 600;">{qtd_pedidos_gerados} c/ pedido</span><br>
+                        <span style="font-weight: 600;">⏳ {sem_ped_atual} itens s/ pedido (fila)</span><br>
+                        <span style="font-size: .68rem; color: var(--muted) !important;">{texto_produtividade}</span>
                     </div>
                     """,
               unsafe_allow_html=True,
           )
 
-          cor_rot = (
-              "#ef4444"
-              if sla_rot_val > 15
-              else ("#3b82f6" if is_tema_claro else "#339af0")
-          )
-          fig_rot = go.Figure(
-              go.Indicator(
-                  mode="gauge+number",
-                  value=sla_rot_val,
-                  number={
-                      "font": {
-                          "size": 18,
-                          "color": cor_texto_grafico,
-                          "family": familia_fonte_grafico,
-                      }
-                  },
-                  gauge={
-                      "axis": {
-                          "range": [0, 30],
-                          "tickwidth": 1,
-                          "tickcolor": "#475569",
-                          "tickfont": {
-                              "size": 8,
-                              "color": cor_texto_grafico,
-                              "family": familia_fonte_grafico,
-                          },
-                      },
-                      "bar": {"color": cor_rot},
-                      "bgcolor": "rgba(0,0,0,0)",
-                      "borderwidth": 0,
-                      "steps": [
-                          {
-                              "range": [0, 15],
-                              "color": "#f1f5f9" if is_tema_claro else "#2a3b4c",
-                          },
-                          {
-                              "range": [15, 30],
-                              "color": "#fee2e2" if is_tema_claro else "#4a2525",
-                          },
-                      ],
-                      "threshold": {
-                          "line": {"color": "red", "width": 3},
-                          "thickness": 0.75,
-                          "value": 15,
-                      },
-                  },
-              )
-          )
-          fig_rot.update_layout(
-              height=90,
-              margin=dict(l=5, r=5, t=20, b=5),
-              paper_bgcolor="rgba(0,0,0,0)",
-              plot_bgcolor="rgba(0,0,0,0)",
-          )
+          cor_rot = "#ef4444" if sla_rot_val > 15 else "#3b82f6"
+          fig_rot = criar_gauge_sla(sla_rot_val, 30, 15, cor_rot)
 
-          cor_emg = (
-              "#ef4444"
-              if sla_emg_val > 3
-              else ("#8b5cf6" if is_tema_claro else "#b197fc")
-          )
-          fig_emg = go.Figure(
-              go.Indicator(
-                  mode="gauge+number",
-                  value=sla_emg_val,
-                  number={
-                      "font": {
-                          "size": 18,
-                          "color": cor_texto_grafico,
-                          "family": familia_fonte_grafico,
-                      }
-                  },
-                  gauge={
-                      "axis": {
-                          "range": [0, 20],
-                          "tickwidth": 1,
-                          "tickcolor": "#475569",
-                          "tickfont": {
-                              "size": 8,
-                              "color": cor_texto_grafico,
-                              "family": familia_fonte_grafico,
-                          },
-                      },
-                      "bar": {"color": cor_emg},
-                      "bgcolor": "rgba(0,0,0,0)",
-                      "borderwidth": 0,
-                      "steps": [
-                          {
-                              "range": [0, 3],
-                              "color": "#f1f5f9" if is_tema_claro else "#2a3b4c",
-                          },
-                          {
-                              "range": [3, 20],
-                              "color": "#fee2e2" if is_tema_claro else "#4a2525",
-                          },
-                      ],
-                      "threshold": {
-                          "line": {"color": "red", "width": 3},
-                          "thickness": 0.75,
-                          "value": 3,
-                      },
-                  },
-              )
-          )
-          fig_emg.update_layout(
-              height=90,
-              margin=dict(l=5, r=5, t=20, b=5),
-              paper_bgcolor="rgba(0,0,0,0)",
-              plot_bgcolor="rgba(0,0,0,0)",
-          )
+          cor_emg = "#ef4444" if sla_emg_val > 3 else "#8b5cf6"
+          fig_emg = criar_gauge_sla(sla_emg_val, 20, 3, cor_emg)
 
           sub_c1, sub_c2 = st.columns(2)
           with sub_c1:
@@ -1081,52 +948,30 @@ if df is not None:
         else:
           st.info(f"Sem dados para {comp}.")
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
     st.markdown(
-        '<div class="section-header" style="background-color: #1e3a8a; border:'
-        " 1px solid #1e3a8a; margin-bottom: 12px;'>📊 SLA MÉDIO GERAL"
-        " CONSOLIDADO</div>",
+        '<div class="section-header">SLA MÉDIO GERAL CONSOLIDADO</div>',
         unsafe_allow_html=True,
     )
 
     col_box1, col_box2 = st.columns(2)
-    bg_box = "#f8fafc" if is_tema_claro else "#111827"
-    border_box = "#cbd5e1" if is_tema_claro else "#374151"
-    color_box_title = "#2563eb" if is_tema_claro else "#60a5fa"
 
-    with col_box1:
-      cor_val_rot = (
-          "#ef4444"
-          if sla_geral_rot > 15
-          else ("#2563eb" if is_tema_claro else "#339af0")
-      )
-      st.markdown(
-          f"""
-            <div style="background-color: {bg_box}; border: 1px solid {border_box}; border-radius: 6px; padding: 15px; text-align: center;">
-                <div style="font-size: 1.0rem; font-weight: {weight_resumo}; color: {color_box_title}; margin-bottom: 0px; text-transform: uppercase;">SLA ROTINEIRA MÉDIO</div>
-                <div style="font-size: 0.75rem; font-weight: {weight_th}; color: #64748b; margin-bottom: 6px;">(Limite: 15 dias)</div>
-                <div style="font-size: 1.8rem; font-weight: bold; color: {cor_val_rot}; line-height: 1.1;">{sla_geral_rot} dias</div>
+    for coluna_sla, titulo_sla, limite_sla, valor_sla, cor_ok_sla in (
+        (col_box1, "SLA Rotineira médio", 15, sla_geral_rot, "#3b82f6"),
+        (col_box2, "SLA Emergencial médio", 3, sla_geral_emg, "#8b5cf6"),
+    ):
+      with coluna_sla:
+        cor_val_sla = "#ef4444" if valor_sla > limite_sla else cor_ok_sla
+        st.markdown(
+            f"""
+            <div class="card" style="text-align: center; border-top: 3px solid {cor_val_sla};">
+                <div class="kpi-label">{titulo_sla}</div>
+                <div class="kpi-sub" style="margin-bottom: .35rem;">limite: {limite_sla} dias</div>
+                <div class="kpi-value" style="color: {cor_val_sla} !important;">{valor_sla} <span style="font-size: 1rem; font-weight: 500;">dias</span></div>
             </div>
             """,
-          unsafe_allow_html=True,
-      )
-
-    with col_box2:
-      cor_val_emg = (
-          "#ef4444"
-          if sla_geral_emg > 3
-          else ("#8b5cf6" if is_tema_claro else "#b197fc")
-      )
-      st.markdown(
-          f"""
-            <div style="background-color: {bg_box}; border: 1px solid {border_box}; border-radius: 6px; padding: 15px; text-align: center;">
-                <div style="font-size: 1.0rem; font-weight: {weight_resumo}; color: {color_box_title}; margin-bottom: 0px; text-transform: uppercase;">SLA EMERGENCIAL MÉDIO</div>
-                <div style="font-size: 0.75rem; font-weight: {weight_th}; color: #64748b; margin-bottom: 6px;">(Limite: 3 dias)</div>
-                <div style="font-size: 1.8rem; font-weight: bold; color: {cor_val_emg}; line-height: 1.1;">{sla_geral_emg} dias</div>
-            </div>
-            """,
-          unsafe_allow_html=True,
-      )
+            unsafe_allow_html=True,
+        )
 
     st.markdown("---")
     _, crit_status_c1, crit_status_c2, _ = st.columns([0.8, 1.2, 0.8, 0.8])
@@ -1151,9 +996,9 @@ if df is not None:
               .reset_index(name="Quantidade")
           )
           color_map = {
-              "NO PRAZO": "#22c55e" if is_tema_claro else "#388e3c",
-              "ATENÇÃO": "#f59e0b" if is_tema_claro else "#d97706",
-              "FORA DO PRAZO": "#ef4444" if is_tema_claro else "#e53e3e",
+              "NO PRAZO": "#22c55e",
+              "ATENÇÃO": "#f59e0b",
+              "FORA DO PRAZO": "#ef4444",
           }
           fig_crit_stat = go.Figure()
           for status_val in ["NO PRAZO", "ATENÇÃO", "FORA DO PRAZO"]:
@@ -1188,8 +1033,8 @@ if df is not None:
                   orientation="h",
                   yanchor="bottom",
                   y=1.02,
-                  xanchor="right",
-                  x=1,
+                  xanchor="center",
+                  x=0.5,
                   font=dict(
                       family=familia_fonte_grafico,
                       size=9,
@@ -1206,7 +1051,7 @@ if df is not None:
               ),
               yaxis=dict(
                   showgrid=True,
-                  gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+                  gridcolor=tokens_tema["grade"],
               ),
           )
           st.plotly_chart(
@@ -1231,14 +1076,7 @@ if df is not None:
           top_critical, use_container_width=True, height=270, hide_index=True
       )
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown(
-        '<div class="section-header" style="background-color: #1e3a8a;'
-        " border: 1px solid #1e3a8a;'>📅 PANORAMA MENSAL - ITENS ATENDIDOS E"
-        " PENDENTES</div>",
-        unsafe_allow_html=True,
-    )
-
+    st.markdown("---")
     MESES_PT = {
         1: "jan", 2: "fev", 3: "mar", 4: "abr", 5: "mai", 6: "jun",
         7: "jul", 8: "ago", 9: "set", 10: "out", 11: "nov", 12: "dez",
@@ -1281,8 +1119,8 @@ if df is not None:
         lambda p: f"{MESES_PT[p.month]}/{str(p.year)[-2:]}"
     )
 
-    cor_atendido = "#22c55e" if is_tema_claro else "#388e3c"
-    cor_pendente = "#f59e0b" if is_tema_claro else "#d97706"
+    cor_atendido = "#22c55e"
+    cor_pendente = "#f59e0b"
 
     acumulado_atendidos = int(resumo_mensal["Atendidos"].sum())
     acumulado_pendentes = int(resumo_mensal["Pendentes"].sum())
@@ -1331,7 +1169,7 @@ if df is not None:
           plot_bgcolor="rgba(0,0,0,0)",
           paper_bgcolor="rgba(0,0,0,0)",
           height=340,
-          margin=dict(l=50, r=10, t=50, b=40),
+          margin=dict(l=50, r=24, t=50, b=40),
           font=dict(color=cor_texto_grafico),
           legend=dict(
               orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
@@ -1343,7 +1181,7 @@ if df is not None:
           ),
           yaxis=dict(
               showgrid=True,
-              gridcolor="#e2e8f0" if is_tema_claro else "#333333",
+              gridcolor=tokens_tema["grade"],
               range=[0, teto_eixo_y],
           ),
       )
@@ -1396,7 +1234,7 @@ if df is not None:
           key="plotly_acumulado_mensal",
       )
       st.markdown(
-          f'<div style="text-align: center; font-size: 0.85rem; font-weight: {weight_resumo}; margin-top: -10px;">ACUMULADO ATUAL</div>',
+          f'<div class="kpi-label" style="text-align: center; margin-top: -6px;">Acumulado atual</div>',
           unsafe_allow_html=True,
       )
 
