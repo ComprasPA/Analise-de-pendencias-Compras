@@ -136,10 +136,11 @@ def buscar_indicadores(ano_focus, get=requests.get):
       resultado[chave] = buscar_sgs(codigo, get)
     except Exception:  # rede, HTTP, JSON inesperado: segue sem esse valor
       pass
-  try:
-    resultado.update(buscar_focus(ano_focus, get))
-  except Exception:
-    pass
+  if ano_focus is not None:
+    try:
+      resultado.update(buscar_focus(ano_focus, get))
+    except Exception:
+      pass
   return resultado
 
 
@@ -198,9 +199,8 @@ def html_parametros(indicadores, ano_focus):
   """Faixa compacta de parâmetros para o cabeçalho (duas linhas)."""
   dolar = indicadores.get("dolar")
   titulo_hoje = f"Hoje ({dolar['data'][:5]})" if dolar and dolar.get("data") else "Hoje"
-  linhas = [
-      _linha_html(titulo_hoje, ["selic", "ipca_12m", "dolar"], indicadores),
-      _linha_html(f"Focus {ano_focus}", ["focus_ipca", "focus_dolar", "focus_pib"], indicadores),
-  ]
+  linhas = [_linha_html(titulo_hoje, ["selic", "ipca_12m", "dolar"], indicadores)]
+  if ano_focus is not None:
+    linhas.append(_linha_html(f"Focus {ano_focus}", ["focus_ipca", "focus_dolar", "focus_pib"], indicadores))
   corpo = "".join(l for l in linhas if l)
   return f'<div class="ind-mercado">{corpo}</div>' if corpo else ""

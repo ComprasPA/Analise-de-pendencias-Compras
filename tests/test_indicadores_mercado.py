@@ -103,3 +103,17 @@ def test_sgs_ignora_data_futura_e_pega_o_ultimo_valor_ate_hoje():
 
   obs = im.buscar_sgs(432, get, hoje=datetime.date(2026, 11, 16))
   assert obs == {"valor": 13.75, "data": "05/11/2026"}
+
+
+def test_sem_focus_so_mostra_a_linha_de_hoje_e_nao_chama_o_olinda():
+  chamadas = []
+
+  def get(url, timeout=None):
+    chamadas.append(url)
+    return fake_get()(url, timeout)
+
+  ind = im.mesclar(im.buscar_indicadores(None, get), {})
+  assert not any("olinda" in u for u in chamadas)
+  html = im.html_parametros(ind, None)
+  assert "Hoje" in html and "Focus" not in html
+  assert html.count('class="ind-linha"') == 1

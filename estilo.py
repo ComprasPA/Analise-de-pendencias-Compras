@@ -100,7 +100,7 @@ div.st-key-header_card img { width: 130px; display: block; }
 .brand-subtitle { font-family: 'Sora', sans-serif !important; font-weight: 700; font-size: 22px; color: var(--muted) !important; display: block; white-space: nowrap; }
 /* parametros de mercado (Selic / IPCA / dolar + Focus) ao lado do botao de atualizar */
 .ind-mercado { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: .15rem 1.4rem;
-  margin: -.55rem .2rem .5rem; font-size: .7rem; line-height: 1.4; color: var(--muted) !important; }
+  margin: -.55rem 0 .5rem; font-size: .7rem; line-height: 1.4; color: var(--muted) !important; }
 .ind-linha { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .4rem; }
 .ind-tit { font-size: .6rem; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; opacity: .65; margin-right: .1rem; }
 .ind-item { white-space: nowrap; cursor: help; }

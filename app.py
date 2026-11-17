@@ -126,7 +126,7 @@ def logo_base64(nome):
 
 
 with st.container(key="header_card"):
-  col_logo, col_marca, col_acoes = st.columns([1.5, 6.0, 2.4], vertical_alignment="center")
+  col_logo, col_marca, col_acoes = st.columns([2, 6, 2], vertical_alignment="center")
   with col_logo:
     st.markdown(
         f'<img class="pa-logo pa-logo-claro" src="data:image/png;base64,{logo_base64("logo.png")}" alt="Parente Andrade">'
@@ -154,10 +154,9 @@ with st.container(key="header_card"):
 
 # Parâmetros de mercado: linha discreta logo abaixo do quadro do título.
 _hoje = datetime.date.today()
-_ano_focus = _hoje.year + 1
 st.markdown(
     indicadores_mercado.html_parametros(
-        carregar_indicadores_mercado(_hoje.isoformat(), _ano_focus), _ano_focus
+        carregar_indicadores_mercado(_hoje.isoformat(), None), None
     ),
     unsafe_allow_html=True,
 )
