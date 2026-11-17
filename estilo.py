@@ -171,6 +171,8 @@ button[data-variant="pills"][data-selected="true"] { background: var(--accent-so
 
 /* ---------- popup ---------- */
 div[data-testid="stDialog"] > div { background: var(--bg) !important; border: 1px solid var(--border); border-radius: 16px !important; }
+/* popup na largura da tela (o "large" do Streamlit para em 1280px) */
+div[data-testid="stDialog"] > div { width: 96vw !important; max-width: 96vw !important; }
 
 /* ---------- assinatura ---------- */
 .app-signature { position: fixed; left: 14px; bottom: 8px; z-index: 999; font-size: .7rem; font-weight: 500;
