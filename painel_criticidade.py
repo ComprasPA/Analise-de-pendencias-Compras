@@ -92,7 +92,12 @@ def _abrir_detalhe(df, cc, filtros):
             "crit": "Criticidade", "comp": "Comprador", "status": "Status", "itens": "Itens",
         }
     )
-    st.dataframe(tabela, hide_index=True, use_container_width=True, height=420)
+    st.dataframe(
+        tabela, hide_index=True, use_container_width=True, height=420,
+        column_config=estilo.colunas_centralizadas(
+            tabela, ["Solicitação", "Cotação", "Itens", "Data"]
+        ),
+    )
 
   _dialogo()
 

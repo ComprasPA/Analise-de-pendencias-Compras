@@ -712,7 +712,13 @@ if df is not None:
             })
             .sort_values("Dias", ascending=False)
         )
-        st.dataframe(tabela_dialog, use_container_width=True, hide_index=True, height=420)
+        st.dataframe(
+            tabela_dialog, use_container_width=True, hide_index=True, height=420,
+            column_config=estilo.colunas_centralizadas(
+                tabela_dialog,
+                ["Solicitação", "Cotação", "CENTRO DE CUSTO", "PRODUTO", "Dias"],
+            ),
+        )
 
       return mostrar_solicitacoes_abertas_dialog
 

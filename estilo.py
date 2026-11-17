@@ -217,3 +217,24 @@ def instalar_folga_plotly():
 
   plotly_chart._pa_folga = True
   st.plotly_chart = plotly_chart
+
+
+def colunas_centralizadas(tabela, colunas):
+  """column_config que centraliza as colunas numericas/codigo de uma tabela.
+  Inteiros saem como %d (sem separador de milhar nem ".0")."""
+  import pandas as pd
+  import streamlit as st
+
+  config = {}
+  for coluna in colunas:
+    if coluna not in tabela.columns:
+      continue
+    serie = tabela[coluna]
+    if pd.api.types.is_numeric_dtype(serie):
+      inteiro = pd.api.types.is_integer_dtype(serie) or (serie.dropna() % 1 == 0).all()
+      config[coluna] = st.column_config.NumberColumn(
+          coluna, alignment="center", format="%d" if inteiro else None
+      )
+    else:
+      config[coluna] = st.column_config.TextColumn(coluna, alignment="center")
+  return config
