@@ -180,6 +180,7 @@ div[data-testid="stDialog"] > div { background: var(--bg) !important; border: 1p
 .stDataFrame td, .stDataFrame th { font-size: .82rem !important; }
 div[data-testid="stDataFrame"] { max-width: 60% !important; margin-left: auto !important; margin-right: auto !important; }
 .st-key-itens_criticos_wrap div[data-testid="stDataFrame"] { max-width: 100% !important; margin: 0 !important; }
+div[data-testid="stDialog"] div[data-testid="stDataFrame"] { max-width: 100% !important; margin: 0 !important; }
 """
 
 
