@@ -98,7 +98,16 @@ div.st-key-header_card img { width: 130px; display: block; }
 .brand-eyebrow { font-family: 'Public Sans', sans-serif !important; font-weight: 700; font-size: 15px; letter-spacing: .12em; text-transform: uppercase;
   color: var(--pa-eyebrow) !important; margin: 0; display: block; white-space: nowrap; }
 .brand-subtitle { font-family: 'Sora', sans-serif !important; font-weight: 700; font-size: 22px; color: var(--muted) !important; display: block; white-space: nowrap; }
+/* parametros de mercado (Selic / IPCA / dolar + Focus) ao lado do botao de atualizar */
+.ind-mercado { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin-bottom: 4px;
+  font-size: .72rem; line-height: 1.3; color: var(--muted) !important; }
+.ind-linha { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; column-gap: .35rem; }
+.ind-tit { font-size: .64rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; opacity: .8; margin-right: .15rem; }
+.ind-item { white-space: nowrap; cursor: help; }
+.ind-item b { color: var(--text) !important; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ind-sep { opacity: .5; }
 @media (max-width: 640px) {
+  .ind-mercado, .ind-linha { align-items: center; justify-content: center; }
   div.st-key-header_card { padding: 12px 18px; }
   .brand-eyebrow { font-size: 10.5px; letter-spacing: .06em; white-space: normal; text-align: center; }
   .brand-subtitle { font-size: 17px; white-space: normal; text-align: center; }

@@ -12,6 +12,7 @@ import streamlit as st
 from google.oauth2.service_account import Credentials
 
 import estilo
+import indicadores_mercado
 from painel_criticidade import renderizar_criticidade_solicitacoes
 from logica_panorama import (
     COL_COTACAO,
@@ -85,6 +86,37 @@ def salvar_historico_dia(worksheet, data_str, snapshot):
   else:
     worksheet.append_row([data_str, dados_json], value_input_option="RAW")
 
+ABA_INDICADORES = "Indicadores_Mercado"
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def carregar_indicadores_mercado(data_str, ano_focus):
+  """Selic, IPCA e dólar do dia + Focus, direto do BCB. O resultado fica
+  salvo na aba Indicadores_Mercado (uma linha por dia), de onde vem o
+  último valor quando o BCB não responder. Cache de 1h; o botão ↻ limpa."""
+  atuais = indicadores_mercado.buscar_indicadores(ano_focus)
+  salvos = {}
+  try:
+    spreadsheet = obter_client_gspread().open_by_key(FILE_ID)
+    try:
+      worksheet = spreadsheet.worksheet(ABA_INDICADORES)
+    except gspread.WorksheetNotFound:
+      worksheet = spreadsheet.add_worksheet(title=ABA_INDICADORES, rows=1000, cols=2)
+      worksheet.update([["Data", "Dados"]], "A1")
+    linhas = worksheet.get_all_values()
+    if len(linhas) > 1:
+      try:
+        salvos = json.loads(linhas[-1][1])
+      except (IndexError, TypeError, ValueError):
+        salvos = {}
+    if atuais:
+      salvar_historico_dia(worksheet, data_str, {**salvos, **atuais})
+  except Exception:
+    # sem planilha (secrets/rede) o painel segue só com o que veio do BCB
+    pass
+  return indicadores_mercado.mesclar(atuais, salvos)
+
+
 @st.cache_data(show_spinner=False)
 def logo_base64(nome):
   try:
@@ -94,7 +126,7 @@ def logo_base64(nome):
 
 
 with st.container(key="header_card"):
-  col_logo, col_marca, col_acoes = st.columns([1.5, 6.0, 2.4], vertical_alignment="center")
+  col_logo, col_marca, col_acoes = st.columns([1.5, 5.0, 3.4], vertical_alignment="center")
   with col_logo:
     st.markdown(
         f'<img class="pa-logo pa-logo-claro" src="data:image/png;base64,{logo_base64("logo.png")}" alt="Parente Andrade">'
@@ -112,6 +144,14 @@ with st.container(key="header_card"):
         unsafe_allow_html=True,
     )
   with col_acoes:
+    _hoje = datetime.date.today()
+    _ano_focus = _hoje.year + 1
+    st.markdown(
+        indicadores_mercado.html_parametros(
+            carregar_indicadores_mercado(_hoje.isoformat(), _ano_focus), _ano_focus
+        ),
+        unsafe_allow_html=True,
+    )
     col_refresh, col_tema = st.columns([1, 2.6], vertical_alignment="center")
     with col_refresh:
       if st.button("↻", help="Atualizar dados agora"):

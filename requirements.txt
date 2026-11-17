@@ -5,3 +5,4 @@ plotly
 matplotlib
 gspread
 google-auth
+requests
