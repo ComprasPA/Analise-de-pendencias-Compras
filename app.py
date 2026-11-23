@@ -599,11 +599,14 @@ if df is not None:
     )
     df_top10_ano["_crit_top10"] = (
         df_top10_ano[col_criticidade].astype(str).str.strip().str.upper()
+        # A base usa "COMPRA DIRETA" (singular) desde 2026-11-23; aceita o
+        # plural antigo caso alguma linha ainda venha assim.
+        .replace({"COMPRAS DIRETA": "COMPRA DIRETA"})
     )
     top10_criticidades = [
         ("EMERGENCIAL", "EMERGENCIAL", "#B4462C", "plotly_top10_emergencial"),
         ("ROTINEIRA", "ROTINEIRA", "#2F6F5E", "plotly_top10_rotineira"),
-        ("COMPRAS DIRETA", "COMPRA DIRETA", "#C98A2B", "plotly_top10_compra_direta"),
+        ("COMPRA DIRETA", "COMPRA DIRETA", "#C98A2B", "plotly_top10_compra_direta"),
     ]
     for coluna_top10, (valor_crit, rotulo_crit, cor_crit, chave_crit) in zip(
         st.columns(3), top10_criticidades
