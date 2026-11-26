@@ -69,6 +69,18 @@ LIMITE_SLA_PADRAO = 15
 
 COMPRADORES_SNAPSHOT = ["Ednilson", "Dayana", "Sílvio"]
 
+# A criticidade de compra direta vem escrita de jeitos diferentes conforme a
+# origem ("Compras direta", "COMPRAS DIRETA", "Compra Direta"...). O sistema
+# trata tudo como a mesma coisa: "COMPRA DIRETA" (singular).
+CRITICIDADE_COMPRA_DIRETA = "COMPRA DIRETA"
+_VARIANTES_COMPRA_DIRETA = {"COMPRAS DIRETA", "COMPRAS DIRETAS", "COMPRA DIRETAS"}
+
+
+def normalizar_criticidade(valor):
+  """Caixa alta, sem espaços sobrando e com compra direta sempre no singular."""
+  texto = " ".join(str(valor).split()).upper()
+  return CRITICIDADE_COMPRA_DIRETA if texto in _VARIANTES_COMPRA_DIRETA else texto
+
 # O fechamento mensal vai do dia 26 do mês anterior ao dia 25 do mês (ex.:
 # "set/26" = 26/08 a 25/09) - a emissão do dia 26 em diante já cai no mês
 # seguinte.
@@ -158,7 +170,7 @@ def processar_panorama(df, df_criticidade, df_pedidos, hoje):
   # TOTVS) e "ROTINEIRA" (digitado), e o gráfico Criticidade x Status
   # agrupa por texto exato - virava 4 grupos em vez de 2.
   df[col_criticidade] = (
-      da_aba.where(~sem_valor_na_aba, propria).fillna("").astype(str).str.strip().str.upper()
+      da_aba.where(~sem_valor_na_aba, propria).fillna("").map(normalizar_criticidade)
   )
 
   # Número da Cotação já vem pronto na própria aba Solicitacoes (coluna

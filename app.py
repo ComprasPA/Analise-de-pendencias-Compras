@@ -21,6 +21,7 @@ from logica_panorama import (
     LIMITE_SLA_PADRAO,
     MAPA_COMPRADORES,
     STATUS_FORA_DO_BACKLOG,
+    normalizar_criticidade,
     periodo_fechamento,
     processar_panorama,
 )
@@ -598,10 +599,7 @@ if df is not None:
         df_top10_ano[col_sc].astype(str).str.split(".").str[0].str.zfill(6)
     )
     df_top10_ano["_crit_top10"] = (
-        df_top10_ano[col_criticidade].astype(str).str.strip().str.upper()
-        # A base usa "COMPRA DIRETA" (singular) desde 2026-11-23; aceita o
-        # plural antigo caso alguma linha ainda venha assim.
-        .replace({"COMPRAS DIRETA": "COMPRA DIRETA"})
+        df_top10_ano[col_criticidade].map(normalizar_criticidade)
     )
     top10_criticidades = [
         ("EMERGENCIAL", "EMERGENCIAL", "#B4462C", "plotly_top10_emergencial"),

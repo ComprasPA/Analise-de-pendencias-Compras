@@ -52,7 +52,7 @@ def test_criticidade_desconhecida_ou_vazia_vira_sem_criticidade():
   df = preparar_solicitacoes(_proc())
   assert df[df["sol"] == "400"].iloc[0]["crit"] == SEM_CRITICIDADE
   assert df[df["sol"] == "500"].iloc[0]["crit"] == SEM_CRITICIDADE
-  assert df[df["sol"] == "200"].iloc[0]["crit"] == "Compras direta"
+  assert df[df["sol"] == "200"].iloc[0]["crit"] == "Compra direta"
   assert df[df["sol"] == "600"].iloc[0]["crit"] == "Correção de Processo"
 
 
@@ -65,7 +65,7 @@ def test_sc_com_numero_float_agrupa_igual():
 def test_contagem_por_criticidade_inclui_categorias_zeradas():
   contagem = contagem_por_criticidade(preparar_solicitacoes(_proc()))
   assert contagem == {
-      "Rotineira": 1, "Compras direta": 1, "Emergencial": 1,
+      "Rotineira": 1, "Compra direta": 1, "Emergencial": 1,
       "Correção de Processo": 1, SEM_CRITICIDADE: 2,
   }
 
@@ -107,7 +107,7 @@ def test_agregado_por_cc_total_e_percentual():
   assert linha_1237[f"% {SEM_CRITICIDADE}"] == 100.0
   linha_1238 = agg[agg["cc"] == "1238"].iloc[0]
   assert linha_1238["% Emergencial"] == 50.0
-  assert linha_1238["% Compras direta"] == 50.0
+  assert linha_1238["% Compra direta"] == 50.0
 
 
 def test_agregado_e_evolucao_de_recorte_vazio_nao_quebram():
@@ -118,3 +118,12 @@ def test_agregado_e_evolucao_de_recorte_vazio_nao_quebram():
 
 def test_rotulo_mes():
   assert rotulo_mes("2026-09") == "set/26"
+
+
+def test_variantes_de_compra_direta_caem_na_mesma_categoria():
+  bruto = _proc()
+  bruto.loc[2, "CRITICIDADE"] = "Compras direta"  # plural, caixa mista
+  df = preparar_solicitacoes(bruto)
+  assert df[df["sol"] == "200"].iloc[0]["crit"] == "Compra direta"
+  bruto.loc[2, "CRITICIDADE"] = "COMPRA DIRETA"
+  assert preparar_solicitacoes(bruto).set_index("sol").loc["200", "crit"] == "Compra direta"

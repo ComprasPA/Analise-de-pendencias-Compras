@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from logica_panorama import classificar_aging, periodo_fechamento, processar_panorama
+from logica_panorama import classificar_aging, normalizar_criticidade, periodo_fechamento, processar_panorama
 
 
 # --- classificar_aging --------------------------------------------------------
@@ -451,3 +451,40 @@ def test_atendido_masculino_sai_do_backlog():
   from logica_panorama import STATUS_FORA_DO_BACKLOG
 
   assert "ATENDIDO" in STATUS_FORA_DO_BACKLOG
+
+
+# --- compra direta sempre no singular ------------------------------------------
+
+@pytest.mark.parametrize(
+    "bruto",
+    ["COMPRA DIRETA", "COMPRAS DIRETA", "Compras direta", "compras  direta ", "Compra Direta", "COMPRAS DIRETAS"],
+)
+def test_normalizar_criticidade_compra_direta_sempre_no_singular(bruto):
+  assert normalizar_criticidade(bruto) == "COMPRA DIRETA"
+
+
+def test_normalizar_criticidade_nao_mexe_nas_outras():
+  assert normalizar_criticidade(" rotineira ") == "ROTINEIRA"
+  assert normalizar_criticidade("Correção de Processo") == "CORREÇÃO DE PROCESSO"
+  assert normalizar_criticidade("") == ""
+
+
+def test_processar_panorama_trata_compras_direta_como_compra_direta():
+  df = pd.DataFrame(
+      {
+          "SOLICITAÇÃO": ["500001", "500002"],
+          "CENTRO DE CUSTO": ["1225", "1225"],
+          "DATA EMISSAO": ["01/09/2026", "01/09/2026"],
+          "PEDIDO": ["", ""],
+          "STATUS": ["", ""],
+          "PRODUTO": ["Z1", "Z2"],
+          "CRITICIDADE": ["COMPRAS DIRETA", ""],
+      }
+  )
+  # a aba separada vem com o plural, a própria aba com o singular
+  df_crit = pd.DataFrame({"Solicitacao": ["500002"], "Criticidade": ["Compras direta"]})
+  df_ped = pd.DataFrame(columns=["SOLICITAÇÃO", "PRODUTO"])
+
+  resultado = processar_panorama(df, df_crit, df_ped, HOJE)
+
+  assert list(resultado["df"]["CRITICIDADE"]) == ["COMPRA DIRETA", "COMPRA DIRETA"]

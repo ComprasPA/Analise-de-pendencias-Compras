@@ -61,7 +61,9 @@ def carregar_arquivo(caminho):
 
   saida = pd.DataFrame({
       "Solicitacao": df["Solicitacao"],
-      "Criticidade": col_ou_vazio(col_crit),
+      "Criticidade": col_ou_vazio(col_crit).replace(
+          {"Compras direta": "COMPRA DIRETA", "COMPRAS DIRETA": "COMPRA DIRETA", "Compra direta": "COMPRA DIRETA"}
+      ),
       "Centro de Custo": col_ou_vazio(col_cc),
       "Descricao": col_ou_vazio(col_desc),
       "Status": col_ou_vazio(col_status),

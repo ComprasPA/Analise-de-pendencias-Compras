@@ -7,13 +7,13 @@ Sem chamadas st.* nem I/O - so recebe/devolve DataFrames, pra poder ser
 testada sem o Streamlit (ver tests/).
 
 A unidade e a Solicitacao, nao a cotacao: nem toda compra tem cotacao
-(Compras direta nao tem codigo de cotacao na aba Solicitacoes), mas toda SC
+(Compra direta nao tem codigo de cotacao na aba Solicitacoes), mas toda SC
 tem uma criticidade. Os codigos de cotacao da SC aparecem como informacao.
 """
 import pandas as pd
 
 SEM_CRITICIDADE = "Sem criticidade"
-CATS = ["Rotineira", "Compras direta", "Emergencial", "Correção de Processo", SEM_CRITICIDADE]
+CATS = ["Rotineira", "Compra direta", "Emergencial", "Correção de Processo", SEM_CRITICIDADE]
 MESES_NOME = {
     "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril",
     "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto",
@@ -25,6 +25,7 @@ MESES_ABREV = {
 }
 
 _CAT_POR_UPPER = {c.upper(): c for c in CATS if c != SEM_CRITICIDADE}
+_CAT_POR_UPPER.update({"COMPRAS DIRETA": "Compra direta", "COMPRAS DIRETAS": "Compra direta"})
 
 # Do mais grave pro menos: o status da SC e o do item mais atrasado dela.
 _ORDEM_STATUS = ["Fora do Prazo", "Atenção", "No Prazo", "Atendidas"]

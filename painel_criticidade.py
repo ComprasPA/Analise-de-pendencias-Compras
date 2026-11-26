@@ -27,7 +27,7 @@ from logica_criticidade import (
 
 COR_CAT = {
     "Rotineira": "#2F6F5E",
-    "Compras direta": "#C98A2B",
+    "Compra direta": "#C98A2B",
     "Emergencial": "#B4462C",
     "Correção de Processo": "#6B6E9A",
     SEM_CRITICIDADE: "#8C8F87",
